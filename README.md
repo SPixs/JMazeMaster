@@ -1,6 +1,8 @@
 # 🏰 JMazeMaster - Relive the Commodore 64 Experience!
 
-JMazeMaster is a Java implementation of the classic **Maze Master** game, originally released on the **Commodore 64**. This version aims to be as faithful as possible to the original, without using emulation. The complete game logic has been reconstructed in Java by disassembling the binary code from the original cartridge.
+JMazeMaster is a Java implementation of the classic **Maze Master** game, originally released in **1983** on the **Commodore 64**. It was developed by **Michael Cranford**, the creator behind the famous *A Bard's Tale* series. 
+
+This version aims to be as faithful as possible to the original, without using emulation : the complete game logic has been reconstructed in Java by disassembling the binary code from the original cartridge.
 
 ## 🎮 Game Overview
 
@@ -46,9 +48,17 @@ As part of my effort to faithfully recreate *Maze Master* in Java, I have meticu
 
 The fully commented assembly source is available in the repository:
 
-[💾 View the original 6510 assembly source code](https://github.com/SPixs/JMazeMaster/blob/main/c64_resources/source.asm)
+[💾 View the reverse engineered 6510 assembly source code](https://github.com/SPixs/JMazeMaster/blob/main/c64_resources/source.asm)
 
 This resource is invaluable for anyone interested in **reverse engineering**, **retro gaming preservation**, or simply understanding how classic 8-bit games were programmed.
+
+## 📖 Original Game Manual
+
+For a detailed understanding of the game mechanics, including the list of **spells** usable both in and out of combat, as well as the **equipment available for purchase**, you can consult the original game manual:
+
+[📘 View the Maze Master Manual](https://github.com/SPixs/JMazeMaster/blob/main/media/mazeMasterManuel.pdf)
+
+This document provides essential guidance for mastering the game, making strategic decisions, and fully experiencing the adventure.
 
 ## 📜 License
 This project is distributed under the **MIT** license. See the [LICENSE](LICENSE) file for more information.
