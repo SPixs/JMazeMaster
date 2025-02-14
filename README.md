@@ -40,6 +40,16 @@ mvn exec:java
 java -jar target/JMazeMaster-1.0-SNAPSHOT.jar
 ```
 
+## 🕹️ Reverse Engineering & Original Assembly Code
+
+As part of my effort to faithfully recreate *Maze Master* in Java, I have meticulously **disassembled and documented** the original **6510 assembly code** from the Commodore 64 cartridge.
+
+The fully commented assembly source is available in the repository:
+
+[💾 View the original 6510 assembly source code](https://github.com/SPixs/JMazeMaster/blob/main/c64_resources/source.asm)
+
+This resource is invaluable for anyone interested in **reverse engineering**, **retro gaming preservation**, or simply understanding how classic 8-bit games were programmed.
+
 ## 📜 License
 This project is distributed under the **MIT** license. See the [LICENSE](LICENSE) file for more information.
 
