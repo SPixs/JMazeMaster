@@ -1,0 +1,162 @@
+Maze Master memory map
+
+=== Zero page RAM === ($0000-$00FF)
+$3A : number of chars to read on keyboard input
+$3B-$3C : pointer to a character data structure
+$3D	: current char index in write buffer
+$39	: current index of CODE character (when parsing custom character codes)
+$46 : required spell points of spell to cast, tmp variable for armor rating sign to display
+$47 : spell number cast when not in combat, tmp variable for armor rating computing
+$48 : party Y position
+$49 : column number for char output
+$4A : row number for char output
+$62 : party X position
+$65 : orientation (0=NORTH, 1=EAST, 2=SOUTH, 3=WEST)
+$66-$67 : point to squares triggers of current square
+$73 : current CODE char flipping byte (when parsing custom character codes) (save other tmp variables)
+$74 : read position in input buffer / char index in CODE group (for display)
+$75 : LSB of word value to display
+$76 : MSB of word value to display
+$7A : random caracter at creation ? (1=true)
+$80 : wandering monster flag
+$81 : 'light' flag
+$83 : 'message in window' flag
+$84 : current maze floor
+$85	: counter for a waiting loop
+$87	: cursor blinking index (0..3), column saved position
+$88 : index of char to display relative to address of "code 1:"
+=== Default basic area === ($0801-$7FFF)
+$0B00-$0BFF : text input buffer
+$2000-$3FFF : bitmap
+$4000-$431F : charset partiellement custom recopié depuis la ROM et une partie de la cartouche ($4000-$404F : nombres 0-9 (ROM)) ($4050-$411F : 26 lettres de "A" ->"Z" (ROM)) ($4120-$425F : 40 characters recopiés de $BD20-$BE5F (CARTIDGE))
+$6000-$6009 : current monsters HP
+=== 16K Cartridge ROM === ($8000-$BFFF)
+$8000-$A395 : GAME CODE
+$A396-$A3AA : flipping bytes (and also attribute data offset)
+$A3AB-$A3BF : upper or lower nibble encoding flag of a code char
+$A3C0-$A3D2 : combat spell flags
+$A3D3-$A3E5 : spell points for each spell
+$A3E6-$A3EA : level thresholds for wandering monsters
+$A3EB-$A3EF : armor rating reduction for all shields
+$A3F0-$A3F4 : armor rating of all armors
+$A3F5-$A406 : spell damage mask of combat spells and AR reduction of protection spells
+$A407-$A40B : weapon damage mask for all weapon 
+$A40C-$A413 : MSB of 1 unit in base 10 lookup table
+$A414-$A41B : LSB of 1 unit in base 10 lookup table
+$A41C-$A423 : bitmap precomputed pixel values
+$A424-$A427 : text offsets for all 4 directions
+$A428-$A43C : answer to the Balrog access enigma
+$A43D-$A447 : LSB of message to display addresses when trigger fires
+$A448-$A462 : monster name offset for ID 0..27
+$A463-$A46F : monster name offset for ID 28..40
+$A470-$A497 : monster attack bonus
+$A498-$A4BF : monster initial condition (HP)
+$A4C0-$A4E7 : monster Armor Rating
+$A4E8-$A508 : MSB of bitmap address offset (relative to $20) of first 8x8 block at each screen row
+$A509-$A56C : X/Y coordinates of wireframe vertices of 3D view
+$A56D-$A58C : X/Y coordinates of all 8 hurting star lines
+$A58D-$A9FF : TEXT
+$AA00-$AB90 : level 0 walls ID
+$AB90-$ABFF : square trigger of level 0 in ROM
+$AC00-$AD90 : level 1 walls ID
+$AD90-$ADFF : square trigger of level 1 in ROM
+$AE00-$AF90 : level 2 walls ID
+$AF90-$AFFF : square trigger of level 2 in ROM
+$B000-$B190 : level 3 walls ID
+$B190-$B1FF : square trigger of level 3 in ROM
+$B200-$B390 : level 4 walls ID
+$B390-$B3FF : square trigger of level 4 in ROM
+$B400-$B47F : SPRITES
+$B480-$B4E0 : TEXT
+$B4E1-$B4EB : MSB of message to display addresses when trigger fires
+$B4EC-$B4FF : MSB of square offset for an YPos in level AND a given level
+$B500-$B77F : SPRITES
+$B780-$B7FF : TEXT
+$B800-$B9FF : SPRITES
+$BA00-$BD1F : TEXT
+$BD20-$BD1F : 40 custom chars 
+$BE60-$BEFF : monsters sprites descriptor (color & address)
+$BF00-$BFBF : TEXT (items)
+$BFC0-$BFDF : items prices
+$BFC0-$BFFF : (cartridge checksum and sign ?)
+
+=== Upper RAM area (4096 bytes) === ($C000-$CFFF)
+$C000-$C06F : square trigger of level 0 in RAM
+$C100-$C16F : square trigger of level 1 in RAM
+$C200-$C26F : square trigger of level 2 in RAM
+$C300-$C36F : square trigger of level 3 in RAM
+$C400-$C46F : square trigger of level 4 in RAM
+
+Character data structure
+
+$800-$80F : character 1 name
+$810 : strength
+$811 : intellect
+$812 : dexterity
+$813 : constitution
+$814 : class (1=war, 2=wiz)
+$815-$816 : gold
+$817-$818 : experience
+$819 : first item (weapon)
+$81A : second item (armor)
+$81B : third item (shield)
+$81C : fourth item (magical item)
+$81D : condition (current HP)
+$81E$-$81F : tmp experience (when in maze)
+$820 : armor rating
+$821 : spell points
+$822 : spell number cast during fight (0=weapon)
+$824 : number of strikes for warrior (tmp experience / 8192)
+
+$900-$90F : character 2 name
+$910 : strength
+$911 : intellect
+$912 : dexterity
+$913 : constitution
+$914 : class (1=war, 2=wiz)
+$915-$916 : gold
+$917-$918 : experience
+$919 : first item (weapon)
+$91A : second item (armor)
+$91B : third item (shield)
+$91C : fourth item (magical item)
+$91D : condition (current HP)
+$91E$-$91F : experience copy
+$920 : armor rating
+$921 : spell points
+
+$A00-$A0F : character 2 name
+$A10 : strength
+$A11 : intellect
+$A12 : dexterity
+$A13 : constitution
+$A14 : class (1=war, 2=wiz)
+$A15-$A16 : gold
+$A17-$A18 : experience
+$A19 : first item (weapon)
+$A1A : second item (armor)
+$A1B : third item (shield)
+$A1C : fourth item (magical item)
+$A1D : condition (current HP)
+$A1E$-$A1F : experience copy
+$A20 : armor rating
+$A21 : spell points
+
+Item type
+---------
+$01=Sword
+$02=Magic sword
+$03=Rune-mace
+$04=Wrathblade
+$01=Leather armor
+$02=Chain mail
+$03=Magic Armor
+$04=Mithril coat
+$01=Shield
+$02=Magic shield
+$03=Ward shield
+$04=Deflector
+$01=Staff of light
+$02=Ring of accuracy
+$03=Amulet of healing
+$04=Hawk blazon
