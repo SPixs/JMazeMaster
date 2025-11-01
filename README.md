@@ -1,70 +1,67 @@
-# 🏰 JMazeMaster - Relive the Commodore 64 Experience!
+# JMazeMaster
 
-JMazeMaster is a Java implementation of the classic **Maze Master** game, originally released in **1983** on the **Commodore 64**. It was developed by **Michael Cranford**, the creator behind the famous *A Bard's Tale* series. 
+A Java recreation of **Maze Master**, the 1983 Commodore 64 dungeon crawler by Michael Cranford (creator of *The Bard's Tale*).
 
-This version aims to be as faithful as possible to the original, without using emulation : the complete game logic has been reconstructed in Java by disassembling the binary code from the original cartridge.
-
-## 🎮 Game Overview
-
-Embark on a perilous adventure through dark corridors and hidden passageways, ever wary of lurking monsters that could strike at any moment. In **Maze Master**, you command a party of three characters (wizards and warriors), minimally armed but capable of gaining strength, gold, and powerful magic as they overcome the dangers of the labyrinth. As you progress through the maze, you will uncover clues to a mystical riddle that must be solved to penetrate the final chamber of the **BALROG**, a formidable foe determined to destroy the liege and his realm. Victory is achieved when the BALROG is defeated, and the riddle is solved, restoring peace to the kingdom.
+This isn't an emulator—I reverse-engineered the original cartridge ROM and reconstructed the entire game logic in Java. The goal was to make it as faithful to the original as possible while running natively.
 
 ![Game Screenshot](media/main_menu.png) ![Image](media/enter_maze.png)
 
-## 🛠️ Installation and Compilation
+## What's Maze Master?
 
-### 📌 Prerequisites
-Before getting started, make sure you have installed:
-- [Java 11+](https://adoptium.net/)
-- [Maven](https://maven.apache.org/)
+You control a party of up to 3 characters (warriors and wizards) exploring a 20×20 maze across 5 levels. Fight monsters, collect loot, solve a riddle, and eventually face the BALROG in the final chamber. Pretty standard stuff for early 80s dungeon crawlers, but Cranford made it work on the C64's limited hardware.
 
-### 🚀 Installation
-Clone the Git repository and navigate to the project directory:
+## Building and Running
+
+**Requirements:**
+- Java 11 or later
+- Maven (for easy building)
+
+**Clone and build:**
 ```sh
 git clone https://github.com/SPixs/JMazeMaster.git
 cd JMazeMaster
-```
-
-### 🏗️ Compilation with Maven
-To compile the project, use:
-```sh
 mvn clean package
 ```
-This generates an executable file in `target/JMazeMaster-1.0-SNAPSHOT.jar`.
 
-### 🎲 Execution
-#### 🔹 With Maven (quick development run)
-```sh
-mvn exec:java
-```
-
-#### 🔹 Running the Generated JAR
+**Run it:**
 ```sh
 java -jar target/JMazeMaster-1.0-SNAPSHOT.jar
 ```
 
-## 🕹️ Reverse Engineering & Original Assembly Code
+Or if you want to run directly without building the JAR:
+```sh
+mvn exec:java
+```
 
-As part of my effort to faithfully recreate *Maze Master* in Java, I have meticulously **disassembled and documented** the original **6510 assembly code** from the Commodore 64 cartridge.
+## Reverse Engineering Notes
 
-The fully commented assembly source is available in the repository:
+I disassembled the original 6510 assembly code from the C64 cartridge and documented everything. You can find the fully commented source here:
 
-[💾 View the reverse engineered 6510 assembly source code](https://github.com/SPixs/JMazeMaster/blob/main/c64_resources/source.asm)
+**→ [c64_resources/source.asm](c64_resources/source.asm)**
 
-This resource is invaluable for anyone interested in **reverse engineering**, **retro gaming preservation**, or simply understanding how classic 8-bit games were programmed.
+The Java code references original memory addresses and code labels throughout (like `$A5B2`, `$9C99`) to make it easier to cross-reference with the assembly.
 
-## 📖 Original Game Manual
+If you're into retro game preservation or just curious how 8-bit games worked, this might be useful.
 
-For a detailed understanding of the game mechanics, including the list of **spells** usable both in and out of combat, as well as the **equipment available for purchase**, you can consult the original game manual:
+## Game Manual
 
-[📘 View the Maze Master Manual](https://github.com/SPixs/JMazeMaster/blob/main/media/mazeMasterManuel.pdf)
+The original manual is included in the repo. It explains spells, equipment, and game mechanics:
 
-This document provides essential guidance for mastering the game, making strategic decisions, and fully experiencing the adventure.
+**→ [media/mazeMasterManuel.pdf](media/mazeMasterManuel.pdf)**
 
-## 📜 License
-This project is distributed under the **MIT** license. See the [LICENSE](LICENSE) file for more information.
+## Technical Details
 
-## 📷 More Game Screenshots
+- **Hardware emulation**: VIC-II graphics chip, CIA1 for input, PETSCII character set
+- **No external dependencies**: Pure Java with Swing for rendering
+- **Encoding**: All sources are UTF-8
+- **Memory**: Loads the original 64KB C64 memory image and works with it directly
+
+The architecture separates hardware emulation (`org.pixs.hardware`) from game logic (`org.pixs.mazemaster`), using a state pattern for different game modes (menu, maze exploration, combat).
+
+## Screenshots
+
 ![Image](media/fight.png)
 
----
-⭐ **If you like this project, don't forget to give it a star on GitHub!** ⭐
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
