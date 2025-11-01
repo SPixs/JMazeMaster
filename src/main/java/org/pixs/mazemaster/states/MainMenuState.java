@@ -62,8 +62,6 @@ public class MainMenuState extends GameState {
 					selectedOption = readKeyboardAsPETSCII-0x31;
 				}
 			}
-			
-			System.out.println(selectedOption);
 	
 			switch (selectedOption) {
 				case 0: // Touche '1' ?
@@ -334,7 +332,6 @@ public class MainMenuState extends GameState {
 			// Does this code char encore the upper or lower 4 bits of character data ?
 			byte upperOrLower = getMem(0xA3AB+i);
 			// If lower part, skip logical shift of value
-			System.out.println(flippingByte + " " + upperOrLower);
 			byte b = selectedCharacter.getRawBytes()[flippingByte];
 			if (upperOrLower != 0) {
 				b = (byte) ((b >> 4) & 0x0F);
@@ -432,11 +429,11 @@ public class MainMenuState extends GameState {
 		if (random) {
 			int offset = 6;
 			offset = displayStringNextLineCol7(offset);
-			character.setStrengh(generateAndDisplayRandom());
+			character.setStrength(generateAndDisplayRandom());
 			offset = displayStringNextLineCol7(offset);
 			character.setIntellect(generateAndDisplayRandom());
 			offset = displayStringNextLineCol7(offset);
-			character.setDexterityt(generateAndDisplayRandom());
+			character.setDexterity(generateAndDisplayRandom());
 			offset = displayStringNextLineCol7(offset);
 			character.setConstitution(generateAndDisplayRandom());
 			

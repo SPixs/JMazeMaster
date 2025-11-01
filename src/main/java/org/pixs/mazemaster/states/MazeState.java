@@ -84,7 +84,7 @@ public class MazeState extends GameState {
 		long startNanoTime = System.nanoTime();
 		boolean timerToggleFlag = false;
 		
-		// Main loop duration on original game is 68 CPU cycles = 69.04 µs = 0.069 ms
+		// Main loop duration on original game is 68 CPU cycles = 69.04 ï¿½s = 0.069 ms
 		while (!m_exitMaze) {
 			long startTime = System.nanoTime();
 			int pressedKey = readKeyboardAsPETSCIINoBlocking();
@@ -147,7 +147,6 @@ public class MazeState extends GameState {
 						// Process light decrease
 						if (m_lightCounter > 0 && m_lightCounter != 0xF0) {
 							m_lightCounter--;
-							System.out.println("LIGHT DECREASE : " + m_lightCounter);
 							if (m_lightCounter == 0) {
 								playRingSound();
 								draw3DView();
@@ -306,7 +305,7 @@ public class MazeState extends GameState {
 	
 	/**
 	 * Cast spell 3 : heal
-	 * This spell will heal 1-32 points of the spellcaster’s own CND.
+	 * This spell will heal 1-32 points of the spellcasterï¿½s own CND.
 	 * @param selectedCharacter 
 	 */
 	private void castHeal(Character selectedCharacter) {
@@ -633,7 +632,7 @@ public class MazeState extends GameState {
 	 * Entre en mode PAUSE
 	 * 
 	 * Fait clignoter le logo MAZE MASTER
-	 * et boucle tant qu'aucune touche n'est pressée
+	 * et boucle tant qu'aucune touche n'est pressï¿½e
 	 */
 	private void togglePause() {
 		while (readKeyboardAsPETSCIINoBlocking() == 0) {
@@ -881,7 +880,6 @@ public class MazeState extends GameState {
 	}
 
 	private void processHole() {
-		System.out.println("HOLE");
 		m_level++;
 		draw3DView();
 		initWanderingMonsters();
@@ -890,9 +888,7 @@ public class MazeState extends GameState {
 	private void processMonsterEncounter(int monsterIndex) {
 		// add 6*level to monster ID -> final monster ID in range ($0..$27=Balrog)
 		monsterIndex = m_level * 6 + monsterIndex;
-		
-		System.out.println("MONSTER : " + monsterIndex);
-		
+
 		// If monster ID is 39 ($27), ensure that party position is (3,19) (BALROG location)
 		// If party is anywhere else, load monster ID 25 ($19) instead...
 		if (monsterIndex == 0x27 && m_xPos != 3 && m_yPos != 19) {
@@ -908,9 +904,7 @@ public class MazeState extends GameState {
 		if (spriteTopAddress < 0x0B0) {
 			spriteTopAddress = ((spriteTopAddress + 0x0B0) & 0x0FF00) | 0x080;
 		}
-		System.out.println("Monster top sprites @ : " + Integer.toHexString(spriteTopAddress));
-		System.out.println("Monster bottom sprites @ : " + Integer.toHexString(spriteBottomAddress));
-		
+
 		VicIIDisplay vicII = getGame().getVicII();
 		for (int i=0;i<64;i++) {
 			vicII.getSprite(0).spriteData[i] = getMem(spriteTopAddress+i);
@@ -1299,7 +1293,6 @@ public class MazeState extends GameState {
 						if (damage >= 20) textOffset = 0x20;
 						displayStringAt(0xB780+textOffset);
 
-						System.out.println(damage + " " + textOffset);
 						nextRowInMessageWindow();
 						
 						// output byte 11,12,1D,1C,24,0F,18,1B,24 in message window
