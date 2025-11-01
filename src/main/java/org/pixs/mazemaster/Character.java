@@ -78,7 +78,7 @@ public class Character {
 		m_armorRating = 0;
 	}
 
-	public void setStrengh(int strength) {
+	public void setStrength(int strength) {
 		m_strength = strength;
 	}
 

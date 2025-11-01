@@ -198,13 +198,13 @@ public class MazeState extends GameState {
 				int attributeBonus = new Random().nextInt(2) + 1;
 				switch (new Random().nextInt(3)) {
 					case 0:
-						character.setStrengh(Math.min(18, attributeBonus));
+						character.setStrength(Math.min(18, attributeBonus));
 						break;
 					case 1:
 						character.setIntellect(Math.min(18, attributeBonus));
 						break;
 					case 2:
-						character.setDexterityt(Math.min(18, attributeBonus));
+						character.setDexterity(Math.min(18, attributeBonus));
 						break;
 					default:
 						throw new IllegalStateException();
@@ -1277,7 +1277,7 @@ public class MazeState extends GameState {
 						// compute damage with weapon mask on random value : 
 						int damage = 1 + (new Random().nextInt(256) & getMem(0xA407+weapon));
 						// add strength bonus to damage
-						damage += Math.max(0, character.getStrengh() - 15);
+						damage += Math.max(0, character.getStrength() - 15);
 						// add (tmp experience / 2048) to damage
 						damage += character.getMazeXp() / 2048;
 						
@@ -1836,7 +1836,7 @@ public class MazeState extends GameState {
 		int offset = 6;
 		nextRowInMessageWindow();
 		offset += displayStringAt(0xA6A7+offset);
-		outputWord(character.getStrengh());
+		outputWord(character.getStrength());
 		
 		// Display string "INTELLECT: " on next message window row (22,9)	
 		nextRowInMessageWindow();
