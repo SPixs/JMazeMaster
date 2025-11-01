@@ -55,3 +55,7 @@ Desktop.ini
 *.tar.gz
 *.rar
 sources.txt
+
+# Temporary build files
+sources.txt
+test_compilation.sh
