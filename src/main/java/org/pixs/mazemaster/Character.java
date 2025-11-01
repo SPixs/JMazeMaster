@@ -54,8 +54,6 @@ public class Character {
 				m_name += (char)('A'+(c-10));
 			}
 		}
-		System.out.println(m_name);
-		
 	}
 	
 	public void reset() {
@@ -80,7 +78,7 @@ public class Character {
 		m_armorRating = 0;
 	}
 
-	public void setStrengh(int strength) {
+	public void setStrength(int strength) {
 		m_strength = strength;
 	}
 
@@ -88,7 +86,7 @@ public class Character {
 		m_intellect = intellect;
 	}
 
-	public void setDexterityt(int dexterity) {
+	public void setDexterity(int dexterity) {
 		m_dexterity = dexterity;
 	}
 
@@ -117,10 +115,6 @@ public class Character {
 
 	public void clearIndicators() {
 		Arrays.fill(m_items, (byte)0);
-	}
-
-	public int getStrengh() {
-		return m_strength;
 	}
 
 	public int getIntellect() {

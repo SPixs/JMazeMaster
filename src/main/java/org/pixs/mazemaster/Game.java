@@ -116,8 +116,8 @@ public class Game implements IKeyListener {
 
 	@Override
 	public void keyPressed(byte keyCode) {
-		 // Si le buffer a atteint sa capacitï¿½ maximale (ici 10 ï¿½lï¿½ments),
-	    // supprime l'ï¿½lï¿½ment le plus ancien.
+		 // Si le buffer a atteint sa capacité maximale (ici 10 éléments),
+	    // supprime l'élément le plus ancien.
 	    if (pressedKeyWithPETSCIIBuffer.size() >= 10) {
 	        pressedKeyWithPETSCIIBuffer.poll();
 	    }
