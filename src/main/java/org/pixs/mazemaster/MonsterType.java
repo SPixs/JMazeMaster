@@ -6,7 +6,7 @@ public class MonsterType {
     private int attackBonus;
     private int initialHP;
     private int armorRating;
-    private byte[] spriteDescriptor; // 4 octets
+    private byte[] spriteDescriptor; // 4 bytes
 
     public MonsterType(int monsterID, String name, int attackBonus, int initialHP, int armorRating, byte[] spriteDescriptor) {
         this.monsterID = monsterID;

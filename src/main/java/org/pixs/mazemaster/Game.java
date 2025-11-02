@@ -66,7 +66,7 @@ public class Game implements IKeyListener {
 		// Create the raw image of C64 memory with the original game loaded
 		m_memory = getClass().getClassLoader().getResourceAsStream("org/pixs/mazemaster/maze_master.bin").readAllBytes();
 		if (m_memory.length != 65536) {
-			throw new IllegalArgumentException("Le fichier doit contenir exactement 64K octets.");
+			throw new IllegalArgumentException("File must contain exactly 64K bytes.");
 		}
 		
 		m_characters = new Character[] {
@@ -80,25 +80,25 @@ public class Game implements IKeyListener {
 	}
 
 	public void initCharsetInRAM() {
-		m_charset = new byte[800]; 
-		
+		m_charset = new byte[800];
+
 		// Copy $D180-$D27F -> $4000-$40FF
-		// Recopie la ROM char standard des caracteres ayant les screen code 48 ("0") -> 79 (upper left corner)
+		// Copy standard ROM charset for characters with screen code 48 ("0") -> 79 (upper left corner)
 		byte[] kernalCharset = m_vicII.getKernalCharset(0);
 		for (int i=0;i<256;i++) {
 			m_charset[i] = kernalCharset[i+0x180];
 		}
-		
-		// Recopie la ROM char des caracteres ayant les screen code 1 ("A") -> 79 ("<-")
-		// a la suite des caracteres "0"..."9"
+
+		// Copy ROM charset for characters with screen code 1 ("A") -> 79 ("<-")
+		// following the characters "0"..."9"
 		// Copy $D008-$D0FF -> $4050-$4147
 		for (int i=8;i<256;i++) {
 			m_charset[0x48+i] = kernalCharset[i];
 		}
-		
-		// Recopie depuis les data du programme @$BD20 les caracteres restants
-		// (' ','.',',','?',...) et le logo MAZE MASTER sur 2 chars de large
-		// Copy $BD20-$BF1F -> $4120-$431F (512 bytes = 64 chars) Note : Seul $BD20-$BE5F semble contenir des chars dans la rom (320 bytes = 40 chars)
+
+		// Copy remaining characters from program data at $BD20
+		// (' ','.',',','?',...) and the MAZE MASTER logo on 2 chars wide
+		// Copy $BD20-$BF1F -> $4120-$431F (512 bytes = 64 chars) Note: Only $BD20-$BE5F seems to contain chars in ROM (320 bytes = 40 chars)
 		for (int i=0;i<512;i++) {
 			m_charset[0x120+i] = m_memory[0xBD20+i];
 		}
@@ -116,12 +116,12 @@ public class Game implements IKeyListener {
 
 	@Override
 	public void keyPressed(byte keyCode) {
-		 // Si le buffer a atteint sa capacité maximale (ici 10 éléments),
-	    // supprime l'élément le plus ancien.
+		 // If buffer has reached maximum capacity (10 elements here),
+	    // remove the oldest element.
 	    if (pressedKeyWithPETSCIIBuffer.size() >= 10) {
 	        pressedKeyWithPETSCIIBuffer.poll();
 	    }
-	    // Ajoute la nouvelle touche convertie en PETSCII dans le buffer.
+	    // Add the new key converted to PETSCII to the buffer.
 	    pressedKeyWithPETSCIIBuffer.add(C64KeyMapping.scanToPETSCII(keyCode));
 	}
 

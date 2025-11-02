@@ -230,18 +230,18 @@ public abstract class GameState {
 
 	
 	/**
-	 * $9D2C in original game Cartidge
+	 * $9D2C in original game Cartridge
 	 *
-	 * CLEAR SCREEN de la partie centrale du menu principal*
-	 * RAZ de la memoire de $2740 -> $362F
-	 * soit 3824 octets, soit 478 (3824/8) blocks de 8x8 pixels bitmap, 
-	 * soit 11 lignes écran (478/40)
-	 * 
-	 * Note : le code original efface de $2740 -> $362F, soit de 80% de la ligne 4 (depuis 0) jusque la fin de la ligne 16 (soit 10 lignes + fin ligne 4 et debut ligne 11 -> bug non visible)
+	 * CLEAR SCREEN of central part of main menu
+	 * Memory reset from $2740 -> $362F
+	 * i.e. 3824 bytes, i.e. 478 (3824/8) blocks of 8x8 pixels bitmap,
+	 * i.e. 11 screen lines (478/40)
+	 *
+	 * Note: original code clears from $2740 -> $362F, i.e. from 80% of line 4 (from 0) to end of line 16 (i.e. 10 lines + end of line 4 and start of line 11 -> non-visible bug)
 	 */
 	protected void clearMenu() {
-		// on commence la RAZ à l'adresse $2740 ($2000 est l'adresse de debut C64)
-		// soit la 5e ligne de l'écran bitmap
+		// Start reset at address $2740 ($2000 is C64 start address)
+		// i.e. 5th line of bitmap screen
 		VicIIDisplay vicII = getGame().getVicII();
 		for (int i=0x740;i<0x1630;i++) {
 			vicII.setBitmapValue(i, (byte)0);

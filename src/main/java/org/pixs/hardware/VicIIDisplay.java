@@ -125,7 +125,7 @@ public class VicIIDisplay {
 		    int x = i % 384;
 		    int bgPixel;
 
-		    // Détermination du pixel de fond (bordure ou affichage principal)
+		    // Determine background pixel (border or main display)
 		    if (x < 4 * 8 || x >= 44 * 8 || y < 4 * 8 + 3 || y >= 272 - 4 * 8 - 5) {
 		        bgPixel = m_borderColor;
 		    } else {
@@ -138,7 +138,7 @@ public class VicIIDisplay {
 		            int pixelY = (y - (4 * 8 + 3)) % 8;
 		            byte tmp = m_charset[charCode * 8 + pixelY];
 		            boolean bitSet = (tmp & (1 << (7 - pixelX))) != 0;
-		            // Remarque : vous utilisez ici un tableau m_bgColors pour la gestion de l’arrière-plan
+		            // Note: using m_bgColors array here for background management
 		            bgPixel = bitSet ? color : m_bgColors[y - (4 * 8 + 3)];
 		        } else if (m_mode == ColorMode.STANDARD_BITMAP) {
 		            int viewportX = (x - 4 * 8);
@@ -165,37 +165,37 @@ public class VicIIDisplay {
 		        }
 		    }
 		    
-		    // --- Clipping des sprites sur la bordure externe ---
-		    // Si le pixel courant se trouve dans la zone de bordure,
-		    // on ne superpose pas de sprite (comportement par défaut du C64)
+		    // --- Sprite clipping on external border ---
+		    // If current pixel is in the border area,
+		    // don't overlay sprite (default C64 behavior)
 		    if (x < 4 * 8 || x >= 44 * 8 || y < 4 * 8 + 3 || y >= 272 - 4 * 8 - 5) {
 		        return bgPixel;
 		    }
 
-		    // Gestion des sprites : on parcourt tous les sprites
+		    // Sprite management: iterate through all sprites
 		    for (int s = 0; s < m_sprites.length; s++) {
 		        Sprite sprite = m_sprites[s];
 		        if (sprite == null || !sprite.enabled)
 		            continue;
-		        // La taille affichée du sprite dépend des flags doubleWidth/doubleHeight
+		        // Displayed sprite size depends on doubleWidth/doubleHeight flags
 		        int spriteWidth = sprite.doubleWidth ? Sprite.WIDTH * 2 : Sprite.WIDTH;
 		        int spriteHeight = sprite.doubleHeight ? Sprite.HEIGHT * 2 : Sprite.HEIGHT;
-		        // Si le pixel (x,y) est dans la zone du sprite...
+		        // If pixel (x,y) is in the sprite area...
 		        int sx = sprite.x + 8;
 		        int sy = sprite.y - 15;
 		        if (x >= sx && x < sx + spriteWidth && y >= sy && y < sy + spriteHeight) {
-		            // Coordonnées relatives dans le sprite.
+		            // Relative coordinates within the sprite.
 		            int relX = x - sx;
 		            int relY = y - sy;
-		            // Si le sprite est en double taille, on compense :
+		            // If sprite is double-sized, compensate:
 		            if (sprite.doubleWidth)
 		                relX /= 2;
 		            if (sprite.doubleHeight)
 		                relY /= 2;
-		            // Récupération du pixel dans le sprite (selon son mode d’affichage)
+		            // Get pixel from sprite (according to its display mode)
 		            int spritePixel = sprite.getPixelAt(relX, relY);
 		            if (spritePixel != Sprite.TRANSPARENT) {
-		                // Le pixel du sprite a priorité (le plus petit index passe en premier)
+		                // Sprite pixel has priority (lowest index first)
 		                return spritePixel;
 		            }
 		        }

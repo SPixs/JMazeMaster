@@ -2,7 +2,7 @@ package org.pixs;
 
 public final class C64KeyMapping {
     /**
-     * Table de conversion de scan code (0x00 à 0x3F) vers PETSCII.
+     * Table de conversion de scan code (0x00 to 0x3F) vers PETSCII.
      * Les indices correspondent aux constantes suivantes :
      *   0x00 : KEY_DEL          
      *   0x01 : KEY_RETURN       

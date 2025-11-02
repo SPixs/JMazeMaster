@@ -1,6 +1,6 @@
 package org.pixs.mazemaster;
 
-// Enum pour le type de mur d'une face
+// Enum for le type de mur d'une face
 public enum WallType {
 	NONE, WALL, DOOR, HIDDEN;
 

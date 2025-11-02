@@ -22,7 +22,7 @@ public class SwingKeyboard implements IKeyboard, KeyListener {
 		//	 ========================= Treatment methods =========================
 
 		
-	    // Ensemble pour mémoriser les touches actuellement enfoncées.
+	    // Set to remember currently pressed keys.
 	    private final Set<Integer> pressedKeys = new HashSet<>();
 		
 		@Override

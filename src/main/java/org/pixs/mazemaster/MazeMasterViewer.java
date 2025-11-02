@@ -55,7 +55,7 @@ public class MazeMasterViewer extends JFrame {
 		try {
 			byte[] data = MazeMasterViewer.class.getClassLoader().getResourceAsStream("org/pixs/mazemaster/maze_master.bin").readAllBytes();
 			if (data.length != 65536) {
-				throw new IllegalArgumentException("Le fichier doit contenir exactement 64K octets.");
+				throw new IllegalArgumentException("File must contain exactly 64K bytes.");
 			}
 
 			levels = MazeLevelParser.parseLevels(data);

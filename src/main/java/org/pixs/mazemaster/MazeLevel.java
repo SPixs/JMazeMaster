@@ -8,9 +8,9 @@ public class MazeLevel {
 	public static final int GRID_SIZE = 20;
 
 	private int levelNumber;
-	private int[][] walls; // grille 20x20, chaque cellule est un octet (0..255)
-	private List<Trigger> triggers; // liste des 56 triggers (paires)
-	private int wanderingThreshold; // seuil pour l'apparition des monstres errants (0-255)
+	private int[][] walls; // 20x20 grid, each cell is a byte (0..255)
+	private List<Trigger> triggers; // list of 56 triggers (pairs)
+	private int wanderingThreshold; // seuil pour l'apparition des wandering monsters (0-255)
 
 	public MazeLevel(int levelNumber, int[][] walls, List<Trigger> triggers, int wanderingThreshold) {
 		this.levelNumber = levelNumber;
@@ -84,17 +84,17 @@ public class MazeLevel {
 	    if (trig.getType() != Trigger.TriggerType.NORMAL) {
 	        return null; // ou lever une exception, ou gérer différemment.
 	    }
-	    // Simuler la lecture d'une valeur aléatoire, par exemple :
+	    // Simulate reading a random value, for example:
 	    int randVal = (int)(Math.random() * 16); // 0 à 15
-	    // Ajustement en fonction du niveau : par exemple, ajouter 6 * (niveau)
-	    int levelNumber = this.levelNumber; // niveau 0 à 4
+	    // Adjustment based on level: for example, add 6 * (level)
+	    int levelNumber = this.levelNumber; // level 0 to 4
 	    int monsterID = randVal + (6 * levelNumber);
 	    
-	    // Maintenant, à partir de monsterID, on peut récupérer
-	    // les caractéristiques du monstre en consultant les tables
-	    // stockées dans le ROM (dans la zone du fichier binaire, par exemple).
-	    // Dans notre solution, ces tables pourraient être extraites dans une classe
-	    // utilitaire (par exemple, MonsterData) qui fournit une méthode getMonsterType(monsterID)
+	    // Now, from monsterID, we can retrieve
+	    // monster characteristics by consulting tables
+	    // stored in ROM (in binary file area, for example).
+	    // In our solution, these tables could be extracted into a class
+	    // utility (for example, MonsterData) that provides a method getMonsterType(monsterID)
 	    
 	    MonsterType monster = MonsterData.getInstance().getMonsterType(monsterID);
 	    return monster;

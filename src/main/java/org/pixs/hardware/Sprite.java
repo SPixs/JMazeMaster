@@ -21,7 +21,7 @@ public class Sprite {
     public int multiColor1;
     public int multiColor2;
 
-    // Données du sprite : 63 octets (21 lignes * 3 octets par ligne)
+    // Données du sprite : 63 bytes (21 lignes * 3 bytes par ligne)
     // Chaque ligne correspond à 24 bits.
     public byte[] spriteData = new byte[64];
 
@@ -32,7 +32,7 @@ public class Sprite {
      */
     public int getPixelAt(int relX, int relY) {
         if (!multicolor) {
-            // Mode monochrome : chaque bit (dans 3 octets par ligne) représente un pixel.
+            // Mode monochrome : chaque bit (dans 3 bytes par ligne) représente un pixel.
             int byteIndex = relY * 3 + (relX / 8);
             int bitIndex = 7 - (relX % 8);
             boolean bitSet = (spriteData[byteIndex] & (1 << bitIndex)) != 0;
@@ -41,7 +41,7 @@ public class Sprite {
             // Mode multicolore : la résolution horizontale est divisée par 2
             // On part du principe que relX est en mode « normal » et on divise par 2.
             int mcX = relX / 2; // valeur entre 0 et 11
-            // Chaque ligne de 3 octets représente 12 pixels en multicolore (2 bits par pixel)
+            // Chaque ligne de 3 bytes représente 12 pixels en multicolore (2 bits par pixel)
             int byteIndex = relY * 3 + (mcX / 4);  // 4 pixels par octet
             int shift = 6 - 2 * (mcX % 4);
             int bits = (spriteData[byteIndex] >> shift) & 0x03;

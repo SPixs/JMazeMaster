@@ -186,7 +186,7 @@ public class Character {
 		raw[0x1B] = getItemCode(2);
 		raw[0x1C] = getItemCode(3);
 		
-		// TODO les autres valeurs
+		// TODO other values
 		
 		return raw;
 	}

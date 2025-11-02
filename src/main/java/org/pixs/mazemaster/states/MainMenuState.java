@@ -45,11 +45,11 @@ public class MainMenuState extends GameState {
         // JSR s9D2C	 
 		displayMenuFooter();
 
-		// Lecture de la touche press�e dans le menu principal	
+		// Reading pressed key in main menu	
 		boolean exitMenu = false;
 		while (!exitMenu) {
 		
-			// Affichage du menu principal avec les 5 choix
+			// Display main menu with 5 choices
 			//   JSR s9DEF    // clear menu
 			//   JSR s9E12    // display 5 choices (center part)
 			clearMenu();
@@ -417,7 +417,7 @@ public class MainMenuState extends GameState {
 			outputChar(getMem(0xA6A7+i));
 		}
 		
-		// Lecture du tampon de saisie (10 caracteres at $0B00)
+		// Reading tampon de saisie (10 caracteres at $0B00)
 		// et stockage dans le nom du personnage libre	
 		byte[] name = readChars(0x10);
 		
