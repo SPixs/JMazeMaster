@@ -9,6 +9,8 @@ import org.pixs.mazemaster.Game;
 
 public class MainMenuState extends GameState {
 
+	private static final Random RANDOM = new Random();
+
 	public MainMenuState(Game game) {
 		super(game);
 	}
@@ -461,7 +463,7 @@ public class MainMenuState extends GameState {
 			m_charOutputRow++;
 			
 			// Generate random gold and reset following data (experience, items, ...)
-			character.setGold((new Random().nextInt(256) & 0xFF) | 0x40);
+			character.setGold((RANDOM.nextInt(256) & 0xFF) | 0x40);
 			character.setXP(0);
 			character.clearIndicators();
 		}
@@ -521,7 +523,7 @@ public class MainMenuState extends GameState {
 
 	private byte generateAndDisplayRandom() {
 		delayInMillis(356);
-		byte value = (byte) (6 + new Random().nextInt(13));
+		byte value = (byte) (6 + RANDOM.nextInt(13));
 		outputWord(value);
 		return value;
 	}

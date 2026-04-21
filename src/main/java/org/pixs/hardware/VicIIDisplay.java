@@ -224,7 +224,7 @@ public class VicIIDisplay {
 		m_charset = charset;
 	}
 	
-	Random random = new Random();
+	private static final Random random = new Random();
 	
 	public void setRandomCharDefinition(int charIndex, byte[] oldChar) {
 		for (int i=charIndex*8;i<charIndex*8+8;i++) {

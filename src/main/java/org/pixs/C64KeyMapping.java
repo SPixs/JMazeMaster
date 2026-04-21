@@ -148,9 +148,9 @@ public final class C64KeyMapping {
 		}
 		switch (keyCode) {
 			case IKeyboard.KEY_CRSR_UP: return (byte) 0xD1;
-			case IKeyboard.KEY_CRSR_LEFT: return (byte) 0x9D; 
+			case IKeyboard.KEY_CRSR_LEFT: return (byte) 0x9D;
 			default:
-				throw new IllegalStateException();
+				return (byte) 0x00;
 		}
 	}
 }

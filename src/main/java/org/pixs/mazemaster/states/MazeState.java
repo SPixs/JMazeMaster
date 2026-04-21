@@ -11,6 +11,8 @@ import org.pixs.mazemaster.Game;
 
 public class MazeState extends GameState {
 
+	private static final Random RANDOM = new Random();
+
 	int m_lightCounter = 0;
 	
 	private int m_xPos;
@@ -137,7 +139,7 @@ public class MazeState extends GameState {
 				startNanoTime = System.nanoTime();
 				
 				// Look for wandering monsters 
-				if (m_wanderingMonsters && ((new Random().nextInt(32) & 0x1F) == 0)) {
+				if (m_wanderingMonsters && ((RANDOM.nextInt(32) & 0x1F) == 0)) {
 					encounterRandomMonster();
 				}
 				else {
@@ -178,7 +180,7 @@ public class MazeState extends GameState {
 	}
 
 	private void encounterRandomMonster() {
-		int monsterID = 6 * m_level + new Random().nextInt(16);
+		int monsterID = 6 * m_level + RANDOM.nextInt(16);
 		processMonsterEncounter(monsterID);
 	}
 
@@ -193,10 +195,10 @@ public class MazeState extends GameState {
 			if (character.isValid()) {
 				boolean levelGained = (character.getMazeXp() >> 10) > (character.getXp() >> 10);
 				if (levelGained) {
-					character.setConstitution(Math.min(255, character.getConstitution() + new Random().nextInt(3) + 1));
+					character.setConstitution(Math.min(255, character.getConstitution() + RANDOM.nextInt(3) + 1));
 				}
-				int attributeBonus = new Random().nextInt(2) + 1;
-				switch (new Random().nextInt(3)) {
+				int attributeBonus = RANDOM.nextInt(2) + 1;
+				switch (RANDOM.nextInt(3)) {
 					case 0:
 						character.setStrength(Math.min(18, attributeBonus));
 						break;
@@ -309,7 +311,7 @@ public class MazeState extends GameState {
 	 * @param selectedCharacter 
 	 */
 	private void castHeal(Character selectedCharacter) {
-		int heal = new Random().nextInt(31) + 1;
+		int heal = RANDOM.nextInt(31) + 1;
 		selectedCharacter.setCondition(Math.min(selectedCharacter.getCondition()+heal, selectedCharacter.getConstitution()));
 		displayStatsLines();
 	}
@@ -386,7 +388,7 @@ public class MazeState extends GameState {
 	 * This spell will heal the CND of every party member by 1-16 points.
 	 */
 	private void castRestore() {
-		healParty(new Random().nextInt(15)+1);
+		healParty(RANDOM.nextInt(15)+1);
 	}
 
 	/**
@@ -394,7 +396,7 @@ public class MazeState extends GameState {
 	 * This spell is similar to spell 7, except that it heals 1-32 points.
 	 */
 	private void castRegenerate() {
-		healParty(new Random().nextInt(31)+1);
+		healParty(RANDOM.nextInt(31)+1);
 	}
 	
 	private void healParty(int healValue) {
@@ -957,7 +959,7 @@ public class MazeState extends GameState {
 		// Compute and display number of fighting monsters
 		m_charOutputRow = 6;
 		// Get a random value between 1 & 4
-		int count = new Random().nextInt(4) + 1;
+		int count = RANDOM.nextInt(4) + 1;
 		count += m_level & 0x03;
 		if (m_wanderingMonsters) {
 			count += 2;
@@ -1044,7 +1046,7 @@ public class MazeState extends GameState {
 				for (int i=0;i<count;i++) {
 					if (monstersHP[i] > 0) {
 						// select a random party target
-						int targetIndex = new Random().nextInt() & 0x03;
+						int targetIndex = RANDOM.nextInt() & 0x03;
 						// copy original game 
 						if (targetIndex == 0x03) {
 							targetIndex = 0; 
@@ -1060,7 +1062,7 @@ public class MazeState extends GameState {
 						// load dodge score matching this AR (score = $1C for an AR of -10 and score = $08 for an AR of +10)
 						int dodgeScore = getMem(0x5300+armorRating);
 						// load a random value in range 5..20
-						int attackScore = new Random().nextInt(16) + 5;
+						int attackScore = RANDOM.nextInt(16) + 5;
 						// add monster attack bonus to get attack score
 						attackScore += getMem(0xA470+monsterID);
 						
@@ -1070,10 +1072,10 @@ public class MazeState extends GameState {
 							// Compute monster damage. It is the sum of a random number (1..8)
 							// and N*rand(1..8) where N is the monster attack bonus
 							// load a random value in range 1..8 (base attack)
-							damage = new Random().nextInt(8)+1;
+							damage = RANDOM.nextInt(8)+1;
 							int attackBonus = getMem(0xA470+monsterID);
 							for (int j=0;j<attackBonus;j++) {
-								damage += new Random().nextInt(8)+1;
+								damage += RANDOM.nextInt(8)+1;
 							}
 						}
 						
@@ -1247,7 +1249,7 @@ public class MazeState extends GameState {
 					// Compute HIT score based on random value, dexterity, magical bonus, magic item
 					// and warrior experience bonus
 					// load an random value in range 2..17
-					int hitScore = new Random().nextInt(16) + 2;
+					int hitScore = RANDOM.nextInt(16) + 2;
 					int bonus = Math.max(0, character.getDexterity() - 15);
 					hitScore += bonus;
 					hitScore += partyHitScoreBonus;
@@ -1275,7 +1277,7 @@ public class MazeState extends GameState {
 						// Wrathblade = 1..64
 						int weapon = character.getItemCode(0);
 						// compute damage with weapon mask on random value : 
-						int damage = 1 + (new Random().nextInt(256) & getMem(0xA407+weapon));
+						int damage = 1 + (RANDOM.nextInt(256) & getMem(0xA407+weapon));
 						// add strength bonus to damage
 						damage += Math.max(0, character.getStrength() - 15);
 						// add (tmp experience / 2048) to damage
@@ -1415,7 +1417,7 @@ public class MazeState extends GameState {
 	private int castAttackSpell(int spellNumber, int monsterID, int[] monstersHP, int deadMonsters) {
 		int mask = getMem(0xA3F5+spellNumber);
 		for (int i=0;i<monstersHP.length;i++) {
-			int spellDamage = 2 * m_level + 1 + (new Random().nextInt(256) & mask);
+			int spellDamage = 2 * m_level + 1 + (RANDOM.nextInt(256) & mask);
 			if (monstersHP[i] > 0) {
 				monstersHP[i] = Math.max(0, monstersHP[i] - spellDamage);
 				nextRowInMessageWindow();
@@ -1578,7 +1580,7 @@ public class MazeState extends GameState {
 		// is (sum dext - monster attack bonus - level - 'other bonus') > random (0..63) ?
 		// if true, party engages
 		// else monster engage
-		if (dexterity - monsterAttackBonus - m_level - runningAwayMonsterBonus > new Random().nextInt(64)) {
+		if (dexterity - monsterAttackBonus - m_level - runningAwayMonsterBonus > RANDOM.nextInt(64)) {
 			return false;
 		}
 		return true;

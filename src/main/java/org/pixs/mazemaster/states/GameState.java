@@ -377,7 +377,7 @@ public abstract class GameState {
 	public int readKeyboardAsPETSCII() {
 		byte in = getGame().getIN();
 		while (in == 0) {
-			Thread.yield();
+			try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
 			in = getGame().getIN();
 		}
 		return in & 0x0FF;
@@ -479,9 +479,10 @@ public abstract class GameState {
 	}
 	
 	public void delayInMillis(double durationInMillis) {
-		long nanoTime = System.nanoTime();
-		while (System.nanoTime() - nanoTime < durationInMillis * 1000000) { 
-			Thread.yield(); 
+		long nanos = (long)(durationInMillis * 1_000_000);
+		try {
+			java.util.concurrent.locks.LockSupport.parkNanos(nanos);
 		}
+		catch (Exception ignore) {}
 	}
 }

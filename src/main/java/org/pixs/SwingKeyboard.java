@@ -2,18 +2,18 @@ package org.pixs;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class SwingKeyboard implements IKeyboard, KeyListener {
 
 		//   ============================ Constants ==============================
 
 		//	 =========================== Attributes ==============================
-		
-		private List<IKeyListener> m_listeners = new ArrayList<IKeyListener>();
+
+		private final List<IKeyListener> m_listeners = new CopyOnWriteArrayList<>();
 
 		//	 =========================== Constructor =============================
 

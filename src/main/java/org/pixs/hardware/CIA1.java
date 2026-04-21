@@ -1,32 +1,31 @@
 package org.pixs.hardware;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.pixs.IJoystick;
 import org.pixs.IJoystickButtonListener;
 import org.pixs.IKeyListener;
 import org.pixs.IKeyboard;
 import org.pixs.JoystickButton;
-import org.pixs.SwingKeyboard;
 
 public class CIA1 implements IJoystickButtonListener, IKeyListener {
 
-	private Set<JoystickButton> m_pressedButton = new HashSet<JoystickButton>();
-	private Set<Byte> m_pressedKey = new HashSet<Byte>();
+	private final Set<JoystickButton> m_pressedButton = new CopyOnWriteArraySet<>();
+	private final Set<Byte> m_pressedKey = new CopyOnWriteArraySet<>();
 
 	public CIA1(IJoystick joystick, IKeyboard keyboard) {
 		joystick.addButtonListener(this);
 		keyboard.addKeyListener(this);
 	}
-	
+
 	@Override
-	public synchronized void buttonPressed(JoystickButton button) {
+	public void buttonPressed(JoystickButton button) {
 		m_pressedButton.add(button);
 	}
 
 	@Override
-	public synchronized void buttonReleased(JoystickButton button) {
+	public void buttonReleased(JoystickButton button) {
 		m_pressedButton.remove(button);
 	}
 
@@ -34,17 +33,17 @@ public class CIA1 implements IJoystickButtonListener, IKeyListener {
 		return m_pressedButton;
 	}
 
-	public synchronized Set<Byte> getPressedKey() {
+	public Set<Byte> getPressedKey() {
 		return m_pressedKey;
 	}
-	
+
 	@Override
-	public synchronized void keyPressed(byte keyCode) {
+	public void keyPressed(byte keyCode) {
 		m_pressedKey.add(keyCode);
 	}
 
 	@Override
-	public synchronized void keyReleased(byte keyCode) {
+	public void keyReleased(byte keyCode) {
 		m_pressedKey.remove(keyCode);
 	}
 }

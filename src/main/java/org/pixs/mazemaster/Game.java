@@ -116,13 +116,13 @@ public class Game implements IKeyListener {
 
 	@Override
 	public void keyPressed(byte keyCode) {
-		 // Si le buffer a atteint sa capacité maximale (ici 10 éléments),
-	    // supprime l'élément le plus ancien.
-	    if (pressedKeyWithPETSCIIBuffer.size() >= 10) {
-	        pressedKeyWithPETSCIIBuffer.poll();
-	    }
-	    // Ajoute la nouvelle touche convertie en PETSCII dans le buffer.
-	    pressedKeyWithPETSCIIBuffer.add(C64KeyMapping.scanToPETSCII(keyCode));
+		byte petscii = C64KeyMapping.scanToPETSCII(keyCode);
+		if (petscii == 0) return;
+		// If buffer is at capacity (10 entries), drop the oldest.
+		// offer() returns false on full instead of throwing like add().
+		while (!pressedKeyWithPETSCIIBuffer.offer(petscii)) {
+			pressedKeyWithPETSCIIBuffer.poll();
+		}
 	}
 
 	@Override

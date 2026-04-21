@@ -2,16 +2,16 @@ package org.pixs;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class SwingJoystick implements IJoystick, KeyListener {
 
 		//   ============================ Constants ==============================
 
 		//	 =========================== Attributes ==============================
-		
-		private List<IJoystickButtonListener> m_listeners = new ArrayList<IJoystickButtonListener>();
+
+		private final List<IJoystickButtonListener> m_listeners = new CopyOnWriteArrayList<>();
 
 		//	 =========================== Constructor =============================
 
