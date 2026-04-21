@@ -21,6 +21,7 @@ public class Game implements IKeyListener {
 	private Rom m_rom;
 	private MazeMap m_mazeMap;
 	private byte[] m_charset;
+	private PetsciiConsole m_console;
 
 	private Party m_party;
 
@@ -71,6 +72,7 @@ public class Game implements IKeyListener {
 		m_mazeMap = new MazeMap(m_rom);
 		
 		m_party = new Party();
+		m_console = new PetsciiConsole(this);
 
 		setState(new InitState(this));
 	}
@@ -110,6 +112,10 @@ public class Game implements IKeyListener {
 
 	public MazeMap getMazeMap() {
 		return m_mazeMap;
+	}
+
+	public PetsciiConsole getConsole() {
+		return m_console;
 	}
 
 	public Party getParty() {

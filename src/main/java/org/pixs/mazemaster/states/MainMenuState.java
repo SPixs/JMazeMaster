@@ -90,8 +90,8 @@ public class MainMenuState extends GameState {
 		
 		// Ouput screen codes 20,11,18,24,20,12,15,15,24,0B,1E,22,27,24,01,49,03,24,4A,00,2A,17,18,17,0E,28 at (7,7) 
 		// that matches chars "WHO WILL BUY? 1-3 (0:NONE)"
-		m_charOutputRow = 0x07;
-		m_charOutputCol = 0x07;
+		console().row = 0x07;
+		console().col = 0x07;
 		for (int i=0;i<0x1A;i++) {
 			outputChar(getMem(0xA77C+i));
 		}
@@ -116,8 +116,8 @@ public class MainMenuState extends GameState {
 		
 		// Ouput screen codes 1D,22,19,0E,24,4A,01,49,20,0E,24,02,49,0A,1B,24,03,49,1C,11,24,04,49,16,12,28,27 at (7,9) 
 		// that matches chars "TYPE (1-WE 2-AR 3-SH 4-MI)?"	
-		m_charOutputRow+=2;
-		m_charOutputCol=7;
+		console().row+=2;
+		console().col=7;
 		for (int i=0;i<0x1B;i++) {
 			outputChar(getMem(0xA796+i));
 		}
@@ -130,8 +130,8 @@ public class MainMenuState extends GameState {
 		
 		// Ouput screen codes 12,1D,0E,16,24,17,1E,16,0B,0E,1B,27,24,4A,01,49,04 (7,10) 
 		// that matches chars "ITEM NUMBER?: (1-4)"	
-		m_charOutputRow++;
-		m_charOutputCol=7;
+		console().row++;
+		console().col=7;
 		for (int i=0;i<0x12;i++) {
 			outputChar(getMem(0xA7B1+i));
 		}
@@ -146,14 +146,14 @@ public class MainMenuState extends GameState {
 		if (itemPrice > selectedCharacter.getGold()) {
 			// Ouput screen codes 12,17,1C,1E,0F,0F,12,0C,12,0E,17,1D,24,0F,1E,17,0D,1C at (11,11) 
 			// that matches chars "INSUFFICIENT FUNDS"
-			m_charOutputRow++;
-			m_charOutputCol=11;
+			console().row++;
+			console().col=11;
 			for (int i=0;i<0x12;i++) {
 				outputChar(getMem(0xA7C3+i));
 			}
 			
-			m_charOutputRow+=2;
-			m_charOutputCol=0x0A;
+			console().row+=2;
+			console().col=0x0A;
 			// Ouput screen codes 11,12,1D,24,0A,17,22,24,14,0E,22,24,1D,18,24,10,18,24,18,17,1C at (5,15) 
 			// that matches chars "HIT ANY KEY TO GO ON"
 			for (int i=0x0A;i<0x1E;i++) {
@@ -169,8 +169,8 @@ public class MainMenuState extends GameState {
 			selectedCharacter.setItem(itemType, (byte)(itemNumber+1));
 
 			// j85E5 in source.asm jumps to j85DE: display "HIT ANY KEY TO GO ON" and wait
-			m_charOutputRow+=2;
-			m_charOutputCol=0x0A;
+			console().row+=2;
+			console().col=0x0A;
 			for (int i=0x0A;i<0x1E;i++) {
 				outputChar(getMem(0xA753+i));
 			}
@@ -183,8 +183,8 @@ public class MainMenuState extends GameState {
 		
 		// Ouput screen codes 0D,0E,15,0E,1D,0E,24,0C,11,0A,1B,0A,0C,1A,0E,1B,24,01,49,03,24,4A,00,2A,17,18,17,0E,28 at (9,8)
 		// that matches chars "DELETE CHARACTER 1-3 (0:NONE)"
-		m_charOutputRow = 0x08;
-		m_charOutputCol = 0x06;
+		console().row = 0x08;
+		console().col = 0x06;
 		for (int i=0;i<0x1D;i++) {
 			outputChar(getMem(0xB7E2+i));
 		}
@@ -205,8 +205,8 @@ public class MainMenuState extends GameState {
 
 	private void examineCharacter() {
 		clearMenu();
-		m_charOutputCol = 0x07;
-		m_charOutputRow = 0x08;
+		console().col = 0x07;
+		console().row = 0x08;
 		
 		for (int i=0;i<0x1A;i++) {
 			outputChar(getMem(0xA739+i));
@@ -233,15 +233,15 @@ public class MainMenuState extends GameState {
 		clearMenu();
 		
 		// Display character name at (5,6)
-		m_charOutputRow = 0x06;
-		m_charOutputCol = 0x05;
+		console().row = 0x06;
+		console().col = 0x05;
 		for (int i=0;i<0x10;i++) {
 			outputChar(selectedCharacter.getNameAsBytes()[i]);
 		}
 		
 		// Ouput screen codes 1D,11,0E,24 at (22,6)
 		// that matches chars "THE "
-		m_charOutputCol++;
+		console().col++;
 		for (int i=0;i<0x04;i++) {
 			outputChar(getMem(0xA753+i));
 		}
@@ -256,62 +256,62 @@ public class MainMenuState extends GameState {
 			}
 		}
 		
-		m_charOutputRow++;
-		int savedCol = m_charOutputCol;
-		m_charOutputCol = 5;
+		console().row++;
+		int savedCol = console().col;
+		console().col = 5;
 		// write char '-' till saved column position
 		do {
 			outputChar((byte)0x29);
 		}
-		while (m_charOutputCol < savedCol);
+		while (console().col < savedCol);
 		
 		// Ouput screen codes 1C,1D,1B,0E,17,10,1D,11,2A,24 at (5,8) 
 		// that matches chars "STRENGTH: "
-		m_charOutputRow++;
+		console().row++;
 		int stringIndex = displayStringAtCol5(6);
 		outputWord(selectedCharacter.getStrength());
 		
 		// Ouput screen codes 12,17,1D,0E,15,15,0E,0C,1D,2A,24 at (19,8) 
 		// that matches chars "INTELLECT: "
-		m_charOutputCol+=2;
+		console().col+=2;
 		stringIndex = displayString(stringIndex);
 		outputWord(selectedCharacter.getIntellect());
 		
 		// Ouput screen codes 0D,0E,21,1D,0E,1B,12,1D,22,2A,24 at (5,9) 
 		// that matches chars "DEXTERITY: "
-		m_charOutputRow++;
+		console().row++;
 		stringIndex = displayStringAtCol5(stringIndex);
 		outputWord(selectedCharacter.getDexterity());
 		
 		// Ouput screen codes 0C,18,17,1C,1D,12,1D,1E,1D,12,18,17,2A,24 at (20,9) 
 		// that matches chars "CONSTITUTION: "
-		m_charOutputCol+=2;
+		console().col+=2;
 		stringIndex = displayString(stringIndex);
 		outputWord(selectedCharacter.getConstitution());
 		
 		// Ouput screen codes 10,18,15,0D,2A,24,FF at (5,10) 
 		// that matches chars "GOLD: "
-		m_charOutputRow++;
+		console().row++;
 		stringIndex = displayStringAtCol5(stringIndex);
 		outputWord(selectedCharacter.getGold());
 		
 		// Ouput screen codes 0E,21,19,0E,1B,12,0E,17,0C,0E,2A,24 at (5,10) 
 		// that matches chars "EXPERIENCE: "
-		m_charOutputCol+=2;
+		console().col+=2;
 		stringIndex = displayString(stringIndex);
 		outputWord(selectedCharacter.getXp());
 		
 		// Ouput screen codes 12,1D,0E,16,1C,2A at (5,10) 
 		// that matches chars "ITEMS :"
-		m_charOutputRow++;
-		m_charOutputCol = 5;
+		console().row++;
+		console().col = 5;
 		for (int i=4;i<0x0A;i++) {
 			outputChar(getMem(0xA753+i));
 		}
 		
 		for (int i=0;i<4;i++) {
-			m_charOutputRow++;
-			m_charOutputCol=5;
+			console().row++;
+			console().col=5;
 			byte item = selectedCharacter.getItemCode(i);
 			
 			// If no item defined, skip item number computation
@@ -330,8 +330,8 @@ public class MainMenuState extends GameState {
 				displayStringAt(rom().itemNameAddress(i, item));
 			}
 		}
-		m_charOutputRow++;
-		m_charOutputCol=5;
+		console().row++;
+		console().col=5;
 		
 		// Ouput screen codes 0C,18,0D,0E,2A,24 at (5,15) 
 		// that matches chars "CODE: "
@@ -358,12 +358,12 @@ public class MainMenuState extends GameState {
 			
 			if (++groupIndex == 7) {
 				groupIndex = 0;
-				m_charOutputCol++;
+				console().col++;
 			}
 		}
 		
-		m_charOutputRow++;
-		m_charOutputCol=0x0A;
+		console().row++;
+		console().col=0x0A;
 		// Ouput screen codes 11,12,1D,24,0A,17,22,24,14,0E,22,24,1D,18,24,10,18,24,18,17,1C at (5,15) 
 		// that matches chars "HIT ANY KEY TO GO ON"
 		for (int i=0x0A;i<0x1E;i++) {
@@ -437,7 +437,7 @@ public class MainMenuState extends GameState {
 		Character character = getGame().getCharacter(index);
 		character.setNameFromByte(name);
 		character.resetAttributes(); 
-		m_charOutputRow++;
+		console().row++;
 		
 		if (random) {
 			int offset = 6;
@@ -450,8 +450,8 @@ public class MainMenuState extends GameState {
 			offset = displayStringNextLineCol7(offset);
 			character.setConstitution(generateAndDisplayRandom());
 			
-			m_charOutputRow++;
-			m_charOutputCol = 7;
+			console().row++;
+			console().col = 7;
 			for (int i=0;i<0x15;i++) {
 				outputChar(getMem(0xA717+i));
 			}
@@ -463,7 +463,7 @@ public class MainMenuState extends GameState {
 			int classType = readKeyboardAsPETSCII - 0x31 + 1;
 			character.setClassType(classType);
 			outputChar((byte) classType);
-			m_charOutputRow++;
+			console().row++;
 			
 			// Generate random gold and reset following data (experience, items, ...)
 			character.setGold((RANDOM.nextInt(256) & 0xFF) | 0x40);
@@ -475,8 +475,8 @@ public class MainMenuState extends GameState {
 			int stringOffset = 0;
 			byte[] rawBytes = character.getRawBytes();
 			while (charIndexToParse < 21) {
-				m_charOutputRow++;
-				m_charOutputCol=7;
+				console().row++;
+				console().col=7;
 				
 				// Ouput screen codes 0C,18,0D,0E,24,01,2A,24,FF at (7,9)
 				// that matches chars "CODE 1: "
@@ -537,13 +537,13 @@ public class MainMenuState extends GameState {
 	 * @return the new offset
 	 */
 	private int displayStringAtCol5(int offset) {
-		m_charOutputCol=5;
+		console().col=5;
 		return displayString(offset);
 	}
 
 	private int displayStringNextLineCol7(int offset) {
-		m_charOutputRow++;
-		m_charOutputCol=7;
+		console().row++;
+		console().col=7;
 		return displayString(offset);
 	}
 	

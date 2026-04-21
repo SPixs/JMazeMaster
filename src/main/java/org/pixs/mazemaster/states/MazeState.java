@@ -282,8 +282,8 @@ public class MazeState extends GameState {
 		
 		// if combat spell, display warning message in window and return to main loop
 		if (rom().isCombatSpell(spellNumber)) {
-			m_charOutputRow++;
-			m_charOutputCol = 22;
+			console().row++;
+			console().col = 22;
 			m_messageInWindow = true;
 			
 			// Ouput screen codes 0F,18,1B,24,0C,18,16,0B,0A,1D,24,18,17,15,22 at (22,10)
@@ -295,8 +295,8 @@ public class MazeState extends GameState {
 		// load required spell points for this spell
 		int requiredSpellPoints = rom().spellPointsCost(spellNumber);
 		if (requiredSpellPoints > selectedCharacter.getSpellPoints()) {
-			m_charOutputRow++;
-			m_charOutputCol = 22;
+			console().row++;
+			console().col = 22;
 			m_messageInWindow = true;
 			
 			// Or, ouput screen codes 15,0A,0C,14,24,1C,19,0E,15,15,24,19,1D,1C,1A at (22,10)
@@ -365,16 +365,16 @@ public class MazeState extends GameState {
 		displayString(0xBC96+0x1D, 0x27-0x1D);
 		
 		outputChar((byte) m_level);
-		m_charOutputRow++;
-		m_charOutputCol = 22;
+		console().row++;
+		console().col = 22;
 		
 		// Ouput screen codes $15,$0E,$1F,$0E,$15,$1C,$24,$0B,$0E,$15,$18,$20,$24,$1D,$11,$0E
 		// that matches chars "LEVELS BELOW THE"
 		// Ouput screen codes $0E,$17,$1D,$1B,$22,$24,$1C,$1D,$0A,$12,$1B,$1C,$25
 		// that matches chars "ENTRY STAIRS,"
 		displayString(0xBC96+0x27, 0x37-0x27);
-		m_charOutputRow++;
-		m_charOutputCol = 22;
+		console().row++;
+		console().col = 22;
 		displayString(0xBC96+0x37, 0x44-0x37);
 		nextRowInMessageWindow();
 		
@@ -563,7 +563,7 @@ public class MazeState extends GameState {
 	 */
 	private int selectValueInRange20() {
 		int value = 20;
-		int savedCol = m_charOutputCol;
+		int savedCol = console().col;
 		
 		while (true) {
 			if (value >= 20) {
@@ -577,7 +577,7 @@ public class MazeState extends GameState {
 				outputChar((byte)0x24);
 			}
 			
-			m_charOutputCol = savedCol;
+			console().col = savedCol;
 			
 			Set<JoystickButton> pressedButton = getGame().getInputState().getPressedButton();
 			int pressedKey = readKeyboardAsPETSCIINoBlocking();
@@ -770,8 +770,8 @@ public class MazeState extends GameState {
 		int messageAddress = getMemU(0xA43D) | (getMemU(0xB4E1) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
-		m_charOutputCol = 21;
-		m_charOutputRow = 6;
+		console().col = 21;
+		console().row = 6;
 
 		int dispayedCount = 0;
 		byte c = getMem(messageAddress);
@@ -780,9 +780,9 @@ public class MazeState extends GameState {
 			dispayedCount++;
 			c = getMem(messageAddress+dispayedCount);
 
-			if (m_charOutputCol == 0x27) {
-				m_charOutputRow++;
-				m_charOutputCol = 0x15;
+			if (console().col == 0x27) {
+				console().row++;
+				console().col = 0x15;
 			}
 		}
 		int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
@@ -817,8 +817,8 @@ public class MazeState extends GameState {
 		int messageAddress = getMemU(0xA43D+1) | (getMemU(0xB4E1+1) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
-		m_charOutputCol = 21;
-		m_charOutputRow = 6;
+		console().col = 21;
+		console().row = 6;
 		
 		int dispayedCount = 0;
 		byte c = getMem(messageAddress);
@@ -827,9 +827,9 @@ public class MazeState extends GameState {
 			dispayedCount++;
 			c = getMem(messageAddress+dispayedCount);
 			
-			if (m_charOutputCol == 0x27) {
-				m_charOutputRow++;
-				m_charOutputCol = 0x15;
+			if (console().col == 0x27) {
+				console().row++;
+				console().col = 0x15;
 			}
 		}
 		int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
@@ -855,8 +855,8 @@ public class MazeState extends GameState {
 		int messageAddress = getMemU(0xA43D+2+(m_level<<1)) | (getMemU(0xB4E1+2+(m_level<<1)) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
-		m_charOutputCol = 21;
-		m_charOutputRow = 6;
+		console().col = 21;
+		console().row = 6;
 		
 		int dispayedCount = 0;
 		byte c = getMem(messageAddress);
@@ -865,9 +865,9 @@ public class MazeState extends GameState {
 			dispayedCount++;
 			c = getMem(messageAddress+dispayedCount);
 			
-			if (m_charOutputCol == 0x27) {
-				m_charOutputRow++;
-				m_charOutputCol = 0x15;
+			if (console().col == 0x27) {
+				console().row++;
+				console().col = 0x15;
 			}
 		}
 		
@@ -944,17 +944,17 @@ public class MazeState extends GameState {
 		// Display monster name in message window
 		resetMessageWindowAndCursor();
 		
-		m_charOutputCol = 24;
+		console().col = 24;
 		
 		int nameAddr = rom().monsterNameAddress(monsterIndex);
 		displayStringAt(nameAddr);
 		// And also at bottom of 3D view
-		m_charOutputCol = 5;
-		m_charOutputRow = 18;
+		console().col = 5;
+		console().row = 18;
 		displayStringAt(nameAddr);
 		
 		// Compute and display number of fighting monsters
-		m_charOutputRow = 6;
+		console().row = 6;
 		// Get a random value between 1 & 4
 		int count = RANDOM.nextInt(4) + 1;
 		count += m_level & 0x03;
@@ -968,7 +968,7 @@ public class MazeState extends GameState {
 		}
 		
 		// output number of monsters at (22,6)
-		m_charOutputCol = 0x16;
+		console().col = 0x16;
 		outputChar((byte) count);
 		next2RowsInMessageWindow();
 		
@@ -1421,7 +1421,7 @@ public class MazeState extends GameState {
 			byte c = getMem(0xB480+offset);
 			while (c != 0) {
 				outputChar(c);
-				if (m_charOutputCol == 0x26) {
+				if (console().col == 0x26) {
 					nextRowInMessageWindow();
 				}
 				offset++;
@@ -1682,15 +1682,15 @@ public class MazeState extends GameState {
 		// Ouput screen codes 0C,11,0A,1B,0A,0C,1D,0E,1B,24,17,0A,16,0E,24,24,24,0A,1B,16,24,0C,18,17,24
 		// 0C,17,0D,24,0C,15,0A,1C,1C at (3,21)
 		// that matches chars "CHARACTER NAME   ARM CON CND CLASS"	
-		m_charOutputCol = 3;
-		m_charOutputRow = 21;
+		console().col = 3;
+		console().row = 21;
 		
 		displayString(0xA58D, 0x22);
 		displayStatsLines();
 		
 		// Display maze master logo in top of message window
-		m_charOutputCol = 22;
-		m_charOutputRow = 0;
+		console().col = 22;
+		console().row = 0;
 		outputChar((byte)0x2C);
 		for (int i=0;i<14;i++) {
 			outputChar((byte)0x29);
@@ -1727,13 +1727,13 @@ public class MazeState extends GameState {
 	}
 
 	private void next2RowsInMessageWindow() {
-		m_charOutputRow++;
+		console().row++;
 		nextRowInMessageWindow();
 	}
 
 	private void nextRowInMessageWindow() {
-		m_charOutputRow++;
-		m_charOutputCol = 0x16;
+		console().row++;
+		console().col = 0x16;
 	}
 
 	private void displayCharacter(int index) {
@@ -1807,15 +1807,15 @@ public class MazeState extends GameState {
 	private void resetMessageWindowAndCursor() {
 		// ASM sA347: clear rows 5..19 inclusive, columns 21..38 inclusive.
 		// The previous post-increment loop started writing at row 6 (off by one).
-		for (m_charOutputRow = 5; m_charOutputRow <= 19; m_charOutputRow++) {
-			m_charOutputCol = 21;
-			while (m_charOutputCol <= 38) {
+		for (console().row = 5; console().row <= 19; console().row++) {
+			console().col = 21;
+			while (console().col <= 38) {
 				outputChar((byte) 0x24);
 			}
 		}
 
-		m_charOutputRow = 6;
-		m_charOutputCol = 22;
+		console().row = 6;
+		console().col = 22;
 	}
 
 	/**
@@ -1835,22 +1835,22 @@ public class MazeState extends GameState {
 			}
 		}
 		
-		m_charOutputRow = 22;
+		console().row = 22;
 		for (int i=0;i<3;i++) {
-			m_charOutputCol = 0;
+			console().col = 0;
 			Character character = getGame().getCharacter(i);
 			if (!character.isValid()) {
 				return;
 			}
 			outputChar((byte)((i+1)));
 			outputChar((byte)0x28);
-			m_charOutputCol++;
+			console().col++;
 			
 			// Display character name
 			for (int j=0;j<0x10;j++) {
 				outputChar(character.getNameAsBytes()[j]);
 			}
-			m_charOutputCol++;
+			console().col++;
 			
 			// Compute and display character armor (the lower, the better)
 			// Once computed, value is store at offset $20 of character data
@@ -1882,19 +1882,19 @@ public class MazeState extends GameState {
 			outputWord(armorRating);
 			
 			// Display character constitution	
-			m_charOutputCol = 24;
+			console().col = 24;
 			outputWord(character.getConstitution());
 			
 			// Display character condition
-			m_charOutputCol = 28;
+			console().col = 28;
 			outputWord(character.getCondition());
 			
 			// Display character class (WAR or WIZ)	
-			m_charOutputCol = 33;
+			console().col = 33;
 			int textOffset = character.getClassType() == 1 ? 0 : 7;
 			displayString(0xA72C+textOffset, 3);
 			
-			m_charOutputRow++;
+			console().row++;
 		}
 	}
 
