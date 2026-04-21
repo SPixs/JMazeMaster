@@ -1,4 +1,4 @@
-package org.pixs.mazemaster;
+package org.pixs.mazemaster.viewer;
 
 //MazeLevelParser.java
 import java.io.IOException;

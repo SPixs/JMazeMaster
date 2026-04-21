@@ -1,4 +1,4 @@
-package org.pixs.mazemaster;
+package org.pixs.mazemaster.viewer;
 
 //Trigger.java
 public class Trigger {

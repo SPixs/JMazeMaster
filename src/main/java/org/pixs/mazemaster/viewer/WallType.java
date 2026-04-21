@@ -1,4 +1,4 @@
-package org.pixs.mazemaster;
+package org.pixs.mazemaster.viewer;
 
 // Enum pour le type de mur d'une face
 public enum WallType {

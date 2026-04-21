@@ -1,8 +1,8 @@
-package org.pixs.mazemaster;
+package org.pixs.mazemaster.viewer;
 
 import javax.swing.*;
 
-import org.pixs.mazemaster.Trigger.TriggerType;
+import org.pixs.mazemaster.viewer.Trigger.TriggerType;
 
 import java.awt.*;
 import java.util.List;
