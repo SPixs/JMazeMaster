@@ -35,16 +35,32 @@ public class MazeState extends GameState {
 
 	private boolean m_exitMaze;
 
-	private int m_infightEscapeCounter;
-
 	private int m_lastTriggerIndex;
 
-	// Fight-scoped state. Live only for the duration of startFight and are
-	// reset at its entry; pulled to instance fields so the per-phase helpers
-	// can mutate them without dragging 3 parameters through every call.
-	private int m_fightMagicARReduction;
-	private int m_fightPartyHitScoreBonus;
-	private int m_fightDeadMonsters;
+	/**
+	 * Per-fight mutable state: passed to every fight phase so the lifetime is
+	 * obvious from the call graph (one instance, created in {@link #startFight}
+	 * and discarded when it returns). Pulling this out of the per-instance
+	 * fields it used to occupy makes combat pure with respect to MazeState's
+	 * non-fight state.
+	 */
+	private static final class FightContext {
+		final int monsterID;
+		final int monsterCount;
+		final int[] monstersHP;
+		int magicARReduction = 0;       // +AR bonus from SHIELD/PROTECT/GUARDIAN
+		int partyHitScoreBonus = 0;     // hit-score bonus from ACCURACY
+		int deadMonsters = 0;
+		int infightEscapeCounter = 0;   // counts down between 'E'-key checks
+
+		FightContext(int monsterID, int monsterCount, int[] monstersHP) {
+			this.monsterID = monsterID;
+			this.monsterCount = monsterCount;
+			this.monstersHP = monstersHP;
+		}
+
+		boolean allMonstersDead() { return deadMonsters >= monsterCount; }
+	}
 
 	public MazeState(Game game) {
 		super(game);
@@ -997,33 +1013,30 @@ public class MazeState extends GameState {
 	}
 	
 	private void startFight(int monsterID, int count) {
-		m_fightMagicARReduction = 0;
-		m_fightPartyHitScoreBonus = 0;
-		m_fightDeadMonsters = 0;
-		m_infightEscapeCounter = 0;
-
 		int[] monstersHP = new int[count];
 		// Monster HP table holds unsigned bytes; the Balrog entry is $FF and would
 		// flip to -1 without the mask, making him spawn already dead.
 		Arrays.fill(monstersHP, rom().monsterHP(monsterID));
+
+		FightContext ctx = new FightContext(monsterID, count, monstersHP);
 
 		// First round: doMonsterEngage decides who starts. Subsequent rounds
 		// always give monsters a turn (matches ASM flow at j9668 and j992F).
 		boolean monstersEngage = doMonsterEngage(monsterID, 0);
 
 		while (true) {
-			if (monstersEngage && !monstersAttackPhase(monsterID, count, monstersHP)) {
+			if (monstersEngage && !monstersAttackPhase(ctx)) {
 				return;
 			}
 			monstersEngage = true;
 
 			askPartyActions();
 
-			if (!partyAttackPhase(monsterID, count, monstersHP)) {
+			if (!partyAttackPhase(ctx)) {
 				return;
 			}
 
-			if (m_fightDeadMonsters >= count) {
+			if (ctx.allMonstersDead()) {
 				processLoot(monsterID, count);
 				return;
 			}
@@ -1035,7 +1048,7 @@ public class MazeState extends GameState {
 	 * to continue the fight, {@code false} if the fight must end (party dead → sets
 	 * {@link #m_exitMaze}, or party successfully escaped mid-round).
 	 */
-	private boolean monstersAttackPhase(int monsterID, int count, int[] monstersHP) {
+	private boolean monstersAttackPhase(FightContext ctx) {
 		resetMessageWindowAndCursor();
 		delayInMillis(50); // SMa : separate turns clearly, display is too fast in Java
 
@@ -1044,8 +1057,8 @@ public class MazeState extends GameState {
 		longDelay();
 		resetMessageWindowAndCursor();
 
-		for (int i = 0; i < count; i++) {
-			if (monstersHP[i] <= 0) continue;
+		for (int i = 0; i < ctx.monsterCount; i++) {
+			if (ctx.monstersHP[i] <= 0) continue;
 
 			// Pick a random target (ASM b995A loads D41B, AND #$03, remaps 3 → 0).
 			int targetIndex = RANDOM.nextInt() & 0x03;
@@ -1056,9 +1069,9 @@ public class MazeState extends GameState {
 				target = getGame().getCharacter(targetIndex);
 			}
 
-			int armorRating = Math.max(0, target.getArmorRating() - m_fightMagicARReduction);
+			int armorRating = Math.max(0, target.getArmorRating() - ctx.magicARReduction);
 			int dodgeScore = rom().dodgeScore(armorRating);
-			int attackBonus = rom().monsterAttackBonus(monsterID);
+			int attackBonus = rom().monsterAttackBonus(ctx.monsterID);
 			int attackScore = RANDOM.nextInt(16) + 5 + attackBonus;
 
 			int damage = 0;
@@ -1111,7 +1124,7 @@ public class MazeState extends GameState {
 			}
 
 			// Mid-round escape attempt ('E' key) — not on the last monster.
-			if (i < count - 1 && checkInfightEscape(monsterID, count)) {
+			if (i < ctx.monsterCount - 1 && checkInfightEscape(ctx)) {
 				// "YOU GO AWAY..."
 				displayString(0xBC20, 0x0F);
 				longDelay();
@@ -1178,15 +1191,15 @@ public class MazeState extends GameState {
 	 * Returns {@code true} to continue the fight, {@code false} if the party
 	 * successfully escaped via the 'E' key.
 	 */
-	private boolean partyAttackPhase(int monsterID, int count, int[] monstersHP) {
+	private boolean partyAttackPhase(FightContext ctx) {
 		int fightingCharacterIndex = 0;
 		while (fightingCharacterIndex < Party.MAX_SIZE
 				&& party().at(fightingCharacterIndex).isValid()
-				&& m_fightDeadMonsters < count) {
+				&& !ctx.allMonstersDead()) {
 			resetMessageWindowAndCursor();
 			delayInMillis(50);
 
-			if (checkInfightEscape(monsterID, count)) {
+			if (checkInfightEscape(ctx)) {
 				// "YOU GO AWAY..."
 				displayString(0xBC20, 0x0F);
 				longDelay();
@@ -1200,7 +1213,7 @@ public class MazeState extends GameState {
 			int numberOfTurns = character.getNumberOfStrikes();
 
 			if (spellNumber == 0) {
-				characterWeaponAttack(character, monsterID, monstersHP);
+				characterWeaponAttack(character, ctx);
 				// Warrior strikes persist on the character (ASM j990B).
 				if (numberOfTurns > 0) {
 					character.setNumberOfStrikes(numberOfTurns - 1);
@@ -1210,7 +1223,7 @@ public class MazeState extends GameState {
 			} else {
 				// "CAST A SPELL..."
 				displayString(0xBC3E, 0x10);
-				applyCombatSpell(spellNumber, monsterID, monstersHP);
+				applyCombatSpell(spellNumber, ctx);
 				fightingCharacterIndex++;
 			}
 
@@ -1221,19 +1234,19 @@ public class MazeState extends GameState {
 
 	/**
 	 * One weapon swing from a single character against the first living monster.
-	 * Updates {@code monstersHP} and {@link #m_fightDeadMonsters}.
+	 * Updates {@link FightContext#monstersHP} and {@link FightContext#deadMonsters}.
 	 */
-	private void characterWeaponAttack(Character character, int monsterID, int[] monstersHP) {
+	private void characterWeaponAttack(Character character, FightContext ctx) {
 		// HIT score = rand(2..17) + dex bonus + party bonus + item bonus + warrior XP bonus
 		int hitScore = RANDOM.nextInt(16) + 2;
 		hitScore += Math.max(0, character.getDexterity() - 15);
-		hitScore += m_fightPartyHitScoreBonus;
+		hitScore += ctx.partyHitScoreBonus;
 		if (character.getItemCode(3) == 0x02) hitScore += 4;           // Ring of accuracy
 		if (character.getClassType() == 0x01) {
 			hitScore += character.getMazeXp() / 2048;                   // warrior only
 		}
 
-		int dodgeScore = rom().dodgeScore(rom().monsterAR(monsterID));
+		int dodgeScore = rom().dodgeScore(rom().monsterAR(ctx.monsterID));
 
 		if (hitScore <= dodgeScore) {
 			// "MISSED"
@@ -1263,11 +1276,11 @@ public class MazeState extends GameState {
 		}
 
 		// Damage hits the first still-alive monster in the array (ASM b98D0).
-		for (int m = 0; m < monstersHP.length; m++) {
-			if (monstersHP[m] > 0) {
-				monstersHP[m] = Math.max(0, monstersHP[m] - damage);
-				if (monstersHP[m] == 0) {
-					m_fightDeadMonsters++;
+		for (int m = 0; m < ctx.monstersHP.length; m++) {
+			if (ctx.monstersHP[m] > 0) {
+				ctx.monstersHP[m] = Math.max(0, ctx.monstersHP[m] - damage);
+				if (ctx.monstersHP[m] == 0) {
+					ctx.deadMonsters++;
 					nextRowInMessageWindow();
 					// "KILLED ONE"
 					displayString(0xBC5B, 0x0A);
@@ -1282,15 +1295,15 @@ public class MazeState extends GameState {
 	 * party's AR, 13 boosts the party's hit score. Updates state shared with
 	 * {@link #characterWeaponAttack}.
 	 */
-	private void applyCombatSpell(int spellNumber, int monsterID, int[] monstersHP) {
+	private void applyCombatSpell(int spellNumber, FightContext ctx) {
 		switch (spellNumber) {
 			case 1: case 5: case 9: case 17:
-				m_fightDeadMonsters = castAttackSpell(spellNumber, monsterID, monstersHP, m_fightDeadMonsters);
+				ctx.deadMonsters = castAttackSpell(spellNumber, ctx.monsterID, ctx.monstersHP, ctx.deadMonsters);
 				return;
-			case 2:  m_fightMagicARReduction = 0x02; return;   // SHIELD
-			case 6:  m_fightMagicARReduction = 0x04; return;   // PROTECT
-			case 10: m_fightMagicARReduction = 0x06; return;   // GUARDIAN
-			case 13: m_fightPartyHitScoreBonus = 0x04; return; // ACCURACY
+			case 2:  ctx.magicARReduction = 0x02; return;   // SHIELD
+			case 6:  ctx.magicARReduction = 0x04; return;   // PROTECT
+			case 10: ctx.magicARReduction = 0x06; return;   // GUARDIAN
+			case 13: ctx.partyHitScoreBonus = 0x04; return; // ACCURACY
 			default:
 				// Unreachable: askPartyActions filters non-combat spells to 0 (weapon).
 				throw new IllegalStateException("unexpected spell number " + spellNumber);
@@ -1438,19 +1451,21 @@ public class MazeState extends GameState {
 		return v;
 	}
 
-	public boolean checkInfightEscape(int monsterID, int count) {
-		if (m_infightEscapeCounter == 0) {
-			int readKeyboardAsPETSCIINoBlocking = readKeyboardAsPETSCIINoBlocking();
-			if (readKeyboardAsPETSCIINoBlocking == 0x45) {
-				m_infightEscapeCounter = 6;
-				boolean doMonsterEngage = doMonsterEngage(monsterID, count * 2);
-				return !doMonsterEngage;
-			}
+	/**
+	 * Polls once for the 'E' key. Returns true iff the user pressed it AND the
+	 * engage roll (with a {@code monster_count*2} bonus) favors the party —
+	 * in which case they've just escaped and the fight ends. The one-in-six
+	 * counter matches ASM s9C7A: six calls elapse between two key polls.
+	 */
+	public boolean checkInfightEscape(FightContext ctx) {
+		if (ctx.infightEscapeCounter > 0) {
+			ctx.infightEscapeCounter--;
+			return false;
 		}
-		else {
-			m_infightEscapeCounter--;
-		}
-		return false;
+		int key = readKeyboardAsPETSCIINoBlocking();
+		if (key != 0x45) return false;
+		ctx.infightEscapeCounter = 6;
+		return !doMonsterEngage(ctx.monsterID, ctx.monsterCount * 2);
 	}
 	
 	public void longDelay() {
