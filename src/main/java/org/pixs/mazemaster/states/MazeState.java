@@ -7,7 +7,10 @@ import java.util.Set;
 import org.pixs.JoystickButton;
 import org.pixs.hardware.VicIIDisplay;
 import org.pixs.mazemaster.Character;
+import org.pixs.mazemaster.Direction;
 import org.pixs.mazemaster.Game;
+import org.pixs.mazemaster.MazeMap;
+import org.pixs.mazemaster.WallType;
 
 public class MazeState extends GameState {
 
@@ -18,7 +21,7 @@ public class MazeState extends GameState {
 	private int m_xPos;
 	private int m_yPos;
 
-	private int m_orientation; // 0 = NORTH, 1 = EAST, 2 = SOUTH, 3 = WEST
+	private Direction m_orientation;
 	private int m_level = 0;
 
 	private int m_magicArmor;
@@ -78,7 +81,7 @@ public class MazeState extends GameState {
 		
 		m_xPos = 0;
 		m_yPos = 0;
-		m_orientation = 0; // NORTH, EAST, SOUTH, WEST
+		m_orientation = Direction.NORTH;
 		m_level = 0;
 		// TODO : add main loop counter*
 		m_magicArmor = 0;
@@ -372,7 +375,7 @@ public class MazeState extends GameState {
 		displayString(0xBC96+0x44, 0x4F-0x44);
 		
 		// Load text offset for direction NORTH = 0, EAST = 5, SOUTH = 10, WEST = 15 
-		int offset = getMemU(0xA424+m_orientation);
+		int offset = getMemU(0xA424+m_orientation.ordinal());
 		displayString(0xBCE5+offset, 5);
 		m_messageInWindow = true;
 	}
@@ -659,12 +662,12 @@ public class MazeState extends GameState {
 	}
 
 	private void turnLeft() {
-		m_orientation = (m_orientation - 1 + 4) % 4;
+		m_orientation = m_orientation.turnLeft();
 		draw3DView();
 	}
 
 	private void turnRight() {
-		m_orientation = (m_orientation + 1) % 4;
+		m_orientation = m_orientation.turnRight();
 		draw3DView();
 	}
 
@@ -707,14 +710,8 @@ public class MazeState extends GameState {
 			m_messageInWindow = false;
 		}
 		
-		switch (m_orientation) {
-			case 0: m_yPos = (m_yPos + 1) % 20; break;
-			case 1: m_xPos = (m_xPos + 1) % 20; break;
-			case 2: m_yPos = (m_yPos - 1 + 20) % 20; break;
-			case 3: m_xPos = (m_xPos - 1 + 20) % 20; break;
-			default:
-				throw new IllegalStateException();
-		}
+		m_xPos = (m_xPos + m_orientation.dx + 20) % 20;
+		m_yPos = (m_yPos + m_orientation.dy + 20) % 20;
 		draw3DView();
 		handleTriggers();
 	}
@@ -1948,7 +1945,7 @@ public class MazeState extends GameState {
 	private void draw3DView() {
 		long startTime = System.nanoTime();
 
-		m_facingWalls = getFacingWalls(m_orientation);
+		m_facingWalls = collectFacingWalls();
 		drawWalls(m_facingWalls);
 
 		// Simulate original loop duration (200 ms) without burning a core.
@@ -1959,51 +1956,20 @@ public class MazeState extends GameState {
 	}
 
 	/**
-	 * Level 0 is stored at $AA00-$AB90
-	 * Level 1 is stored at $AC00-$AD90
-	 * Level 2 is stored at $AE00-$AE90
-	 * Level 3 is stored at $B000-$B190
-	 * Level 4 is stored at $B200-$B390
-
-	 * @param direction
-	 * @return
+	 * Walks five squares ahead of the party (the render depth) and collects the
+	 * 5-slot {@link WallType} array returned by {@link MazeMap#facingWalls} for
+	 * each. Replaces the former four-way dispatcher + getWallsFacing&lt;Dir&gt;.
 	 */
-	private WallType[][] getFacingWalls(int direction) {
-		// Stores for each depth[0,4] an array of 5 wall types : 
-		// WallType on the [left, right, front, left square front, right square front] 
+	private WallType[][] collectFacingWalls() {
 		WallType[][] facingWalls = new WallType[5][];
-		int squareX = m_xPos;
-		int squareY = m_yPos;
-
-		switch (direction) {
-			case 0: // NORTH
-				for (int i=0;i<5;i++) {
-					facingWalls[i] = getWallsFacingNorth(squareX, squareY);
-					squareY = (squareY + 1) % 20;
-				}
-				break;
-			case 1: // EAST
-				for (int i=0;i<5;i++) {
-					facingWalls[i] = getWallsFacingEast(squareX, squareY);
-					squareX = (squareX + 1) % 20;
-				}
-				break;
-			case 2: // SOUTH
-				for (int i=0;i<5;i++) {
-					facingWalls[i] = getWallsFacingSouth(squareX, squareY);
-					squareY = (squareY - 1 + 20) % 20;
-				}
-				break;
-			case 3: // WEST
-				for (int i=0;i<5;i++) {
-					facingWalls[i] = getWallsFacingWest(squareX, squareY);
-					squareX = (squareX - 1 + 20) % 20;
-				}
-				break;
-			default:
-				throw new IllegalStateException();
+		MazeMap map = getGame().getMazeMap();
+		int x = m_xPos;
+		int y = m_yPos;
+		for (int depth = 0; depth < 5; depth++) {
+			facingWalls[depth] = map.facingWalls(m_level, x, y, m_orientation);
+			x = (x + m_orientation.dx + MazeMap.SIZE) % MazeMap.SIZE;
+			y = (y + m_orientation.dy + MazeMap.SIZE) % MazeMap.SIZE;
 		}
-		
 		return facingWalls;
 	}
 	
@@ -2239,114 +2205,6 @@ public class MazeState extends GameState {
 		{0x4A, 0x5A, 0x4A, 0x4A, 0x56, 0x4A, 0x56, 0x5A},
 		{0x4D, 0x55, 0x4D, 0x4D, 0x53, 0x4D, 0x53, 0x55}
 	};
-
-	private enum WallType {
-		NONE,
-		WALL,
-		DOOR,
-		HIDDEN
-	}
-	
-	private WallType[] getWallsFacingNorth(int x, int y) {
-		 WallType[] result = new WallType[5];
-		 
-		// get current pos walls on N,S,E,W
-		WallType[] walls = getWalls(m_level, x, y);
-		result[0] = walls[3]; // WallType on our left
-		result[1] = walls[2]; // WallType on our right
-		result[2] = walls[0]; // WallType in front of us
-		if (result[0] == WallType.NONE) { // if no wall on our left, get the facing wall of the left square
-			int leftSquareX = (x-1+20) % 20;
-			WallType[] leftWalls = getWalls(m_level, leftSquareX, y);
-			result[3] = leftWalls[0]; // WallType of the left square facing us
-		}
-		if (result[1] == WallType.NONE) { // if no wall on our right, get the facing wall of the right square
-			int rightSquareX = (x+1) % 20;
-			WallType[] rightWalls = getWalls(m_level, rightSquareX, y);
-			result[4] = rightWalls[0]; // WallType of the left square facing us
-		}
-		return result;
-	}
-	
-	private WallType[] getWallsFacingEast(int x, int y) {
-		WallType[] result = new WallType[5];
-		 
-		// get current pos walls on N,S,E,W
-		WallType[] walls = getWalls(m_level, x, y);
-		result[0] = walls[0]; // WallType on our left
-		result[1] = walls[1]; // WallType on our right
-		result[2] = walls[2]; // WallType in front of us
-		if (result[0] == WallType.NONE) { // if no wall on our left, get the facing wall of the left square
-			int leftSquareY = (y+1) % 20;
-			WallType[] leftWalls = getWalls(m_level, x, leftSquareY);
-			result[3] = leftWalls[2]; // WallType of the left square facing us
-		}
-		if (result[1] == WallType.NONE) { // if no wall on our right, get the facing wall of the right square
-			int rightSquareY = (y-1+20) % 20;
-			WallType[] rightWalls = getWalls(m_level, x, rightSquareY);
-			result[4] = rightWalls[2]; // WallType of the left square facing us
-		}
-		return result;
-	}
-	
-	private WallType[] getWallsFacingSouth(int x, int y) {
-		 WallType[] result = new WallType[5];
-		 
-		// get current pos walls on N,S,E,W
-		WallType[] walls = getWalls(m_level, x, y);
-		result[0] = walls[2]; // WallType on our left
-		result[1] = walls[3]; // WallType on our right
-		result[2] = walls[1]; // WallType in front of us
-		if (result[0] == WallType.NONE) { // if no wall on our left, get the facing wall of the left square
-			int leftSquareX = (x+1) % 20;
-			WallType[] leftWalls = getWalls(m_level, leftSquareX, y);
-			result[3] = leftWalls[1]; // WallType of the left square facing us
-		}
-		if (result[1] == WallType.NONE) { // if no wall on our right, get the facing wall of the right square
-			int rightSquareX = (x-1+20) % 20;
-			WallType[] rightWalls = getWalls(m_level, rightSquareX, y);
-			result[4] = rightWalls[1]; // WallType of the left square facing us
-		}
-		return result;
-	}
-	
-	private WallType[] getWallsFacingWest(int x, int y) {
-		WallType[] result = new WallType[5];
-		 
-		// get current pos walls on N,S,E,W
-		WallType[] walls = getWalls(m_level, x, y);
-		result[0] = walls[1]; // WallType on our left
-		result[1] = walls[0]; // WallType on our right
-		result[2] = walls[3]; // WallType in front of us
-		if (result[0] == WallType.NONE) { // if no wall on our left, get the facing wall of the left square
-			int leftSquareY = (y-1+20) % 20;
-			WallType[] leftWalls = getWalls(m_level, x, leftSquareY);
-			result[3] = leftWalls[3]; // WallType of the left square facing us
-		}
-		if (result[1] == WallType.NONE) { // if no wall on our right, get the facing wall of the right square
-			int rightSquareY = (y+1) % 20;
-			WallType[] rightWalls = getWalls(m_level, x, rightSquareY);
-			result[4] = rightWalls[3]; // WallType of the left square facing us
-		}
-		return result;
-	}
-	
-	/**
-	 * @param level
-	 * @param x
-	 * @param y
-	 * @return the wall type in this order : north, south, east, west
-	 */
-	private WallType[] getWalls(int level, int x, int y) {
-		byte squareDefinition = rom().wallsByte(level, x, y);
-		WallType northWall = WallType.values()[squareDefinition & 0x03];
-		WallType southWall = WallType.values()[(squareDefinition >> 2) & 0x03];
-		WallType eastWall = WallType.values()[(squareDefinition >> 4) & 0x03];
-		WallType westWall = WallType.values()[(squareDefinition >> 6 ) & 0x03];
-		return new WallType[] {
-			northWall, southWall, eastWall, westWall
-		};
-	}
 
 	public void hideSprites() {
 		for (int i=0;i<4;i++) {

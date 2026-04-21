@@ -19,6 +19,7 @@ public class Game implements IKeyListener {
 
 	private byte[] m_memory;
 	private Rom m_rom;
+	private MazeMap m_mazeMap;
 	private byte[] m_charset;
 
 	private Character[] m_characters;
@@ -67,6 +68,7 @@ public class Game implements IKeyListener {
 		// Create the raw image of C64 memory with the original game loaded
 		m_memory = getClass().getClassLoader().getResourceAsStream("org/pixs/mazemaster/maze_master.bin").readAllBytes();
 		m_rom = new Rom(m_memory);
+		m_mazeMap = new MazeMap(m_rom);
 		
 		m_characters = new Character[] {
 			new Character(),	
@@ -109,6 +111,10 @@ public class Game implements IKeyListener {
 
 	public Rom getRom() {
 		return m_rom;
+	}
+
+	public MazeMap getMazeMap() {
+		return m_mazeMap;
 	}
 
 	public Character getCharacter(int i) {
