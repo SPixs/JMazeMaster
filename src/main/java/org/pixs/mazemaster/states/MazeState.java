@@ -35,6 +35,13 @@ public class MazeState extends GameState {
 
 	private int m_lastTriggerIndex;
 
+	// Fight-scoped state. Live only for the duration of startFight and are
+	// reset at its entry; pulled to instance fields so the per-phase helpers
+	// can mutate them without dragging 3 parameters through every call.
+	private int m_fightMagicARReduction;
+	private int m_fightPartyHitScoreBonus;
+	private int m_fightDeadMonsters;
+
 	public MazeState(Game game) {
 		super(game);
 	}
@@ -367,7 +374,7 @@ public class MazeState extends GameState {
 		displayString(0xBC96+0x44, 0x4F-0x44);
 		
 		// Load text offset for direction NORTH = 0, EAST = 5, SOUTH = 10, WEST = 15 
-		int offset = getMem(0xA424+m_orientation);
+		int offset = getMemU(0xA424+m_orientation);
 		displayString(0xBCE5+offset, 5);
 		m_messageInWindow = true;
 	}
@@ -757,19 +764,19 @@ public class MazeState extends GameState {
 	}
 	
 	private void processUpstairs() {
-		int messageAddress = (getMem(0xA43D) & 0x0FF) | (getMem(0xB4E1) << 8 & 0x0FFFF);
+		int messageAddress = getMemU(0xA43D) | (getMemU(0xB4E1) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
 		m_charOutputCol = 21;
 		m_charOutputRow = 6;
-		
+
 		int dispayedCount = 0;
 		byte c = getMem(messageAddress);
 		while (c != (byte)(0xFF)) {
 			outputChar(c);
 			dispayedCount++;
 			c = getMem(messageAddress+dispayedCount);
-			
+
 			if (m_charOutputCol == 0x27) {
 				m_charOutputRow++;
 				m_charOutputCol = 0x15;
@@ -804,7 +811,7 @@ public class MazeState extends GameState {
 	}
 
 	private void processDownstairs() {
-		int messageAddress = (getMem(0xA43D+1) & 0x0FF) | (getMem(0xB4E1+1) << 8 & 0x0FFFF);
+		int messageAddress = getMemU(0xA43D+1) | (getMemU(0xB4E1+1) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
 		m_charOutputCol = 21;
@@ -842,7 +849,7 @@ public class MazeState extends GameState {
 	}
 
 	private void processClue() {
-		int messageAddress = (getMem(0xA43D+2+(m_level<<1)) & 0x0FF) | ((getMem(0xB4E1+2+(m_level<<1)) << 8) & 0x0FFFF);
+		int messageAddress = getMemU(0xA43D+2+(m_level<<1)) | (getMemU(0xB4E1+2+(m_level<<1)) << 8);
 		resetMessageWindowAndCursor();
 		playRingSound();
 		m_charOutputCol = 21;
@@ -899,10 +906,10 @@ public class MazeState extends GameState {
 		
 		// Load monster sprite descriptors
 		int offset = monsterIndex * 4;
-		int multiColor0 = getMem(0xBE60+offset); 
-		int multiColor1 = getMem(0xBE61+offset); 
-		int spriteBottomAddress = (getMem(0xBE63+offset) & 0x0FF) << 8;
-		int spriteTopAddress = (getMem(0xBE62+offset) & 0x0FF) << 8;
+		int multiColor0 = getMemU(0xBE60+offset);
+		int multiColor1 = getMemU(0xBE61+offset);
+		int spriteBottomAddress = getMemU(0xBE63+offset) << 8;
+		int spriteTopAddress = getMemU(0xBE62+offset) << 8;
 		if (spriteTopAddress < 0x0B0) {
 			spriteTopAddress = ((spriteTopAddress + 0x0B0) & 0x0FF00) | 0x080;
 		}
@@ -938,7 +945,7 @@ public class MazeState extends GameState {
 		
 		if (monsterIndex >= 27) {
 			offset = monsterIndex - 27;
-			int nameOffset = getMem(0xA463+offset) & 0x0FF;
+			int nameOffset = getMemU(0xA463+offset);
 			displayStringAt(0xA90B+nameOffset);
 			
 			// And also at bottom of 3D view
@@ -947,7 +954,7 @@ public class MazeState extends GameState {
 			displayStringAt(0xA90B+nameOffset);
 		}
 		else {
-			int nameOffset = getMem(0xA448+monsterIndex) & 0x0FF;
+			int nameOffset = getMemU(0xA448+monsterIndex);
 			displayStringAt(0xA80D+nameOffset);
 			
 			// And also at bottom of 3D view
@@ -1016,384 +1023,306 @@ public class MazeState extends GameState {
 	}
 	
 	private void startFight(int monsterID, int count) {
-		int fightingMonsterIndex = 0;
-		// AR reduction due to protection spell
-		int magicARReduction = 0;
-		int deadMonsters = 0;
-		int partyHitScoreBonus = 0;
+		m_fightMagicARReduction = 0;
+		m_fightPartyHitScoreBonus = 0;
+		m_fightDeadMonsters = 0;
 		m_infightEscapeCounter = 0;
-		
+
 		int[] monstersHP = new int[count];
 		// Monster HP table holds unsigned bytes; the Balrog entry is $FF and would
 		// flip to -1 without the mask, making him spawn already dead.
-		Arrays.fill(monstersHP, getMem(0xA498+monsterID) & 0xFF);
-		
-		boolean fightInProgress = true;
+		Arrays.fill(monstersHP, getMemU(0xA498+monsterID));
+
+		// First round: doMonsterEngage decides who starts. Subsequent rounds
+		// always give monsters a turn (matches ASM flow at j9668 and j992F).
 		boolean monstersEngage = doMonsterEngage(monsterID, 0);
-		
-		while (fightInProgress) {
-			if (monstersEngage) {
-				resetMessageWindowAndCursor();
-				delayInMillis(50); // SMa : Added to separate turns clearly ! (display is too fast in Java)
-				fightingMonsterIndex = 0;
-				
-				// Ouput screen codes 16,18,17,1C,1D,0E,1B,1C,24,0A,1D,1D,0A,0C,14 at (22,6)
-				// that matches chars "MONSTERS ATTACK"
-				displayString(0xA9A4, 0x0F);
-				
-				longDelay();
-				resetMessageWindowAndCursor();
-				
-				// Look for next monster still alive
-				for (int i=0;i<count;i++) {
-					if (monstersHP[i] > 0) {
-						// select a random party target
-						int targetIndex = RANDOM.nextInt() & 0x03;
-						// copy original game 
-						if (targetIndex == 0x03) {
-							targetIndex = 0; 
-						}
-						Character target = getGame().getCharacter(targetIndex);
-						if (!target.isValid()) {
-							targetIndex = 0;
-							target = getGame().getCharacter(targetIndex);
-						}
-						int armorRating = target.getArmorRating();
-						armorRating = Math.max(0, armorRating - magicARReduction);
-						
-						// load dodge score matching this AR (score = $1C for an AR of -10 and score = $08 for an AR of +10)
-						int dodgeScore = getMem(0x5300+armorRating);
-						// load a random value in range 5..20
-						int attackScore = RANDOM.nextInt(16) + 5;
-						// add monster attack bonus to get attack score
-						attackScore += getMem(0xA470+monsterID);
-						
-						int damage = 0;
-						// if monster attack score >= character dodge score, attack succeeded
-						if (attackScore >= dodgeScore) {
-							// Compute monster damage. It is the sum of a random number (1..8)
-							// and N*rand(1..8) where N is the monster attack bonus
-							// load a random value in range 1..8 (base attack)
-							damage = RANDOM.nextInt(8)+1;
-							int attackBonus = getMem(0xA470+monsterID);
-							for (int j=0;j<attackBonus;j++) {
-								damage += RANDOM.nextInt(8)+1;
-							}
-						}
-						
-						
-						// Display monster attack result
-						// display character name in message windows
-						display(target.getNameAsBytes());
-						nextRowInMessageWindow();
-						
-						if (damage == 0) {
-							// If monster damage is zero, output screen codes 0D,18,0D,10,0E,1C,24,1D,11,0E,24,0B,15,18,20
-							// that matches chars "DODGES THE BLOW"
-							displayString(0xB7B1, 0x0F);
-						}
-						else {
-							// Damages are not null.
-							// Output various string according to damage value :
-							// damage < 7 : bytes 12,1C,24,1C,0C,1B,0A,19,0E,0D
-							// that matche char "IS SCRAPED"
-							// damage < 25 : bytes 12,1C,24,1C,15,0A,1C,11,0E,0D
-							// that matche char "IS SLASHED"
-							// damage >= 25 : bytes 12,1C,24,0B,0A,1D,1D,0E,1B,0E,0D
-							// that matche char "IS BATTERED"
-							int messageOffset = 0x0F;
-							if (damage >= 7) messageOffset = 0x1A;
-							if (damage >= 25) messageOffset = 0x25;
-							displayStringAt(0xB7B1+messageOffset);
-							nextRowInMessageWindow();
-							
-							// Ouput screen codes 1D,0A,14,0E,1C,24 in message window
-							// that matches chars "TAKES "
-							// Ouput screen codes 24,0D,0A,16,0A,10,0E,0A in message window
-							// that matches chars " DAMAGE"
-							for (int j=0;j<0x0D;j++) {
-								outputChar(getMem(0xBC6E+j));
-								if (j==5) {
-									outputWord(damage);
-								}
-							}
-							
-							// Update current character CND and kill him if his condition is 0
-							target.setCondition(Math.max(0,  target.getCondition() - damage));
-							if (target.getCondition() == 0) {
-								nextRowInMessageWindow();
-								// Ouput screen codes 0A,17,0D,24,12,1C,24,14,12,15,15,0E,0D in message window
-								// that matches chars "AND IS KILLED"	
-								displayString(0xBC7B, 0x0D);
-								getGame().deleteCharacter(targetIndex);
-							}
-						}
-						
-						displayStatsLines();
-						longDelay();
-						resetMessageWindowAndCursor();
-						delayInMillis(50);
-						
-						// Party dead ?
-						if (!getGame().getCharacter(0).isValid()) {
-							// hide sprites
-							m_exitMaze = true;
-							return;
-						}
-						
-						if (i < count-1) {
-							if (checkInfightEscape(monsterID, count)) {
-								// Party engages and so, can run away	
-								// Ouput screen codes 22,18,1E,24,10,18,1D,24,0A,20,0A,22,26,26,26 in message window
-								// that matches chars "YOU GO AWAY..."
-								displayString(0xBC20, 0x0F);
-								longDelay();
-								return;
-							}
-						}
-					}
-				}
+
+		while (true) {
+			if (monstersEngage && !monstersAttackPhase(monsterID, count, monstersHP)) {
+				return;
+			}
+			monstersEngage = true;
+
+			askPartyActions();
+
+			if (!partyAttackPhase(monsterID, count, monstersHP)) {
+				return;
 			}
 
-			monstersEngage =  true;
-				
-			// party engage
-			for (int i=0;i<3;i++) {
-				resetMessageWindowAndCursor();
-				delayInMillis(50); // SMa : Added to separate turns clearly ! (display is too fast in Java)
-				Character character = getGame().getCharacter(i);
-				if (character.isValid()) {
-					// is it a warrior ?
-					if (character.getClassType() == 1) {
-						// Compute number of strikes for warrior
-						character.setNumberOfStrikes(character.getMazeXp() / 8192);
-					}
-					else {
-						character.setNumberOfStrikes(0);
-					}
-						
-					// display character name at (22,6)
-					display(character.getNameAsBytes());
-					nextRowInMessageWindow();
-					
-					// Ouput screen codes 4A,20,28,0E,0A,19,24,18,1B,24,4A,1C,28,19,0E,15 (22,7)
-					// that matches chars "(W)EAP OR (S)PEL"
-					displayString(0xBC10, 0x10);
-					
-					int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
-					while (readKeyboardAsPETSCII != 0x53 && readKeyboardAsPETSCII != 0x57) {
-						readKeyboardAsPETSCII = readKeyboardAsPETSCII();
-					}
-					
-					// Weapon selected
-					if (readKeyboardAsPETSCII == 0x57) {
-						character.setSpellNumber(0);
-					}
-					else {
-						next2RowsInMessageWindow();
-						// Ouput screen codes 1C,19,0E,15,15,24,17,1E,16,0B,0E,1B,2A,24 (22,7)
-						// that matches chars "SPELL NUMBER: "
-						displayString(0xBC88, 0x0E);
-						byte[] spellNumberBytes = readChars(3);
-						int spellNumber = convertToWord(spellNumberBytes) & 0x0FF;
-						if (spellNumber > 18) {
-							spellNumber = 0;
-						}
-						
-						// table indexed with spell number, storing zero value for combat spells
-						// if spell is not a combat spell, let character uses its weapon
-						if (getMem(0xA3C0+spellNumber) == 0) {
-							int requiredSpellPoints = getMem(0xA3D3+spellNumber);
-							if (requiredSpellPoints > character.getSpellPoints()) {
-								spellNumber = 0; // Not enough spell points. Use weapon.
-							}
-							else {
-								character.setSpellPoints(character.getSpellPoints() - requiredSpellPoints);
-							}
-						}
-						else {
-							spellNumber = 0; // Not a combat spell
-						}
-						character.setSpellNumber(spellNumber);
-					}
-				}
-				else {
-					break;
-				}
-			}
-			
-			int fightingCharacterIndex = 0;
-			while (fightingCharacterIndex < 3 && getGame().getCharacter(fightingCharacterIndex).isValid() && fightInProgress) {
-			
-				// process characters actions
-				resetMessageWindowAndCursor();
-				delayInMillis(50); // SMa : Added to separate turns clearly ! (display is too fast in Java)
-				
-				if (checkInfightEscape(monsterID, count)) {
-					// Party engages and so, can run away	
-					// Ouput screen codes 22,18,1E,24,10,18,1D,24,0A,20,0A,22,26,26,26 in message window
-					// that matches chars "YOU GO AWAY..."
-					displayString(0xBC20, 0x0F);
-					longDelay();
-					return;
-				}
-			
-				Character character = getGame().getCharacter(fightingCharacterIndex);
-				display(character.getNameAsBytes());
-				nextRowInMessageWindow();
-				int spellNumber = character.getSpellNumber();
-				int numberOfTurns= character.getNumberOfStrikes();
-				
-				// Weapon used ?
-				if (spellNumber == 0) {
-					
-					// Character attacks with weapon
-					// Compute HIT score based on random value, dexterity, magical bonus, magic item
-					// and warrior experience bonus
-					// load an random value in range 2..17
-					int hitScore = RANDOM.nextInt(16) + 2;
-					int bonus = Math.max(0, character.getDexterity() - 15);
-					hitScore += bonus;
-					hitScore += partyHitScoreBonus;
-					// look for a magic item in inventory
-					// Is it a 'Ring of accuracy' ?
-					if (character.getItemCode(3) == 0x02) {
-						hitScore += 4;
-					}
-					if (character.getClassType() == 0x01) {
-						hitScore += character.getMazeXp() / 2048;
-					}
-					
-					// load monster AR (ranging $0..$14) <-> (-10..+10)
-					int monsterAR = getMem(0xA4C0+monsterID);
-					// load dodge score matching this AR (score = $1C for an AR of -10 and score = $08 for an AR of +10)
-					int dodgeScore = getMem(0x5300+monsterAR);
-					
-					// if HIT score > monster dodge score, attack succeeded
-					if (hitScore > dodgeScore) {
-						// dammage for each weapon :
-						// None =  1..4
-						// Sword = 1..8
-						// Magic sword = 1..16
-						// Rune-mace = 1..32
-						// Wrathblade = 1..64
-						int weapon = character.getItemCode(0);
-						// compute damage with weapon mask on random value :
-						int damage = 1 + (RANDOM.nextInt(256) & getMem(0xA407+weapon));
-						// add strength bonus to damage
-						damage += Math.max(0, character.getStrength() - 15);
-						// add (tmp experience / 2048) to damage — warriors only (ASM b988A)
-						if (character.getClassType() == 0x01) {
-							damage += character.getMazeXp() / 2048;
-						}
-						
-						// Output attack text according to amount of damage :
-						// damage < 5 : bytes 10,15,0A,17,0C,0E,1C,24,11,12,1C,24,0F,18,0E
-						// that matche char "GLANCES HIS FOE"
-						// damage < 20 : bytes 1C,15,0A,1C,11,0E,1C,24,11,12,1C,24,0F,18,0E
-						// that matche char "SLASHES HIS FOE"
-						// damage >= 20 : bytes 1C,1D,1B,12,14,0E,1C,24,16,12,10,11,1D,12,15,22
-						// that matche char "STRIKES MIGHTILY"
-						int textOffset = 0;
-						if (damage >= 5) textOffset = 0x10;
-						if (damage >= 20) textOffset = 0x20;
-						displayStringAt(0xB780+textOffset);
-
-						nextRowInMessageWindow();
-						
-						// output byte 11,12,1D,1C,24,0F,18,1B,24 in message window
-						// that matches chars "HITS FOR "
-						// output byte 24,19,1D,1C at (22,8) in message window
-						// that matches chars " PTS"
-						for (int j=0;j<0x0D;j++) {
-							outputChar(getMem(0xBC4E+j));
-							if (j==8) {
-								outputWord(damage);
-							}
-						}
-						
-						// Remove HP of the first monster still alive
-						for (int m=0;m<monstersHP.length;m++) {
-							if (monstersHP[m] > 0) {
-								monstersHP[m] = Math.max(0, monstersHP[m]-damage);
-								if (monstersHP[m] == 0) {
-									deadMonsters++;
-									nextRowInMessageWindow();
-									// output byte 14,12,15,15,0E,0D,24,18,17,0E in message window
-									// that matches chars "KILLED ONE"
-									displayString(0xBC5B, 0x0A);
-								}
-								break;
-							}
-						}
-						
-						fightInProgress = count > deadMonsters;
-//						longDelay();
-					}
-					else {
-						// else character missed
-						displayString(0xBC65+0x03, 0x09-0x03);
-					}
-					
-					// ASM j990B persists the decremented strikes counter on the
-					// character; without the write-back the warrior loops forever.
-					if (numberOfTurns > 0) {
-						character.setNumberOfStrikes(numberOfTurns - 1);
-					}
-					else {
-						fightingCharacterIndex++;
-					}
-				}
-				else {
-					// Cast a spell
-					// Character has casted a magic spell
-					// Ouput screen codes 0C,0A,1C,1D,1C,24,0A,24,1C,19,0E,15,15,26,26,26 (22,7)
-					// that matches chars "CAST A SPELL..."
-					displayString(0xBC3E, 0x10);
-					
-					switch (spellNumber) {
-						// Fireball
-						case 1:
-						case 5:
-						case 9:
-						case 17:
-							deadMonsters = castAttackSpell(spellNumber, monsterID, monstersHP, deadMonsters);
-							break;
-						case 2:
-							// Spell 2 : SHIELD 
-							// This lowers the party's AR by 2 for the duration of the battle. This and all similar spells has a cumulative effect.
-							magicARReduction = 0x02;
-							break;
-						case 6:
-							// Spell 6 : PROTECT 
-							// This spell will drop the AR of the party by 4 for the duration of the battle. 
-							magicARReduction = 0x04;
-							break;
-						case 10:
-							// Spell 10	: GUARDIAN 
-							// This spell drops the party AR by 6 for the duration of the battle.
-							magicARReduction = 0x06;
-							break;
-						case 13:
-							// Spell 13 : ACCURACY 
-							// This spell will improve the chances of all the characters scoring a hit in combat by approximately 25%. 
-							partyHitScoreBonus = 0x04;
-							break;
-						default:
-							throw new IllegalStateException();
-					}
-					
-					fightInProgress = deadMonsters < count;
-					fightingCharacterIndex++;
-				}
-				
-				longDelay();
-			}
-			
-			if (!fightInProgress) {
+			if (m_fightDeadMonsters >= count) {
 				processLoot(monsterID, count);
 				return;
 			}
+		}
+	}
+
+	/**
+	 * All living monsters attack a random living character. Returns {@code true}
+	 * to continue the fight, {@code false} if the fight must end (party dead → sets
+	 * {@link #m_exitMaze}, or party successfully escaped mid-round).
+	 */
+	private boolean monstersAttackPhase(int monsterID, int count, int[] monstersHP) {
+		resetMessageWindowAndCursor();
+		delayInMillis(50); // SMa : separate turns clearly, display is too fast in Java
+
+		// "MONSTERS ATTACK" at (22,6)
+		displayString(0xA9A4, 0x0F);
+		longDelay();
+		resetMessageWindowAndCursor();
+
+		for (int i = 0; i < count; i++) {
+			if (monstersHP[i] <= 0) continue;
+
+			// Pick a random target (ASM b995A loads D41B, AND #$03, remaps 3 → 0).
+			int targetIndex = RANDOM.nextInt() & 0x03;
+			if (targetIndex == 0x03) targetIndex = 0;
+			Character target = getGame().getCharacter(targetIndex);
+			if (!target.isValid()) {
+				targetIndex = 0;
+				target = getGame().getCharacter(targetIndex);
+			}
+
+			int armorRating = Math.max(0, target.getArmorRating() - m_fightMagicARReduction);
+			int dodgeScore = getMemU(0x5300 + armorRating);
+			int attackScore = RANDOM.nextInt(16) + 5 + getMemU(0xA470 + monsterID);
+
+			int damage = 0;
+			if (attackScore >= dodgeScore) {
+				// Base 1..8 plus N further 1..8 rolls, where N = monster attack bonus.
+				damage = RANDOM.nextInt(8) + 1;
+				int attackBonus = getMemU(0xA470 + monsterID);
+				for (int j = 0; j < attackBonus; j++) {
+					damage += RANDOM.nextInt(8) + 1;
+				}
+			}
+
+			display(target.getNameAsBytes());
+			nextRowInMessageWindow();
+
+			if (damage == 0) {
+				// "DODGES THE BLOW"
+				displayString(0xB7B1, 0x0F);
+			} else {
+				// Hit text varies with damage: "IS SCRAPED" / "IS SLASHED" / "IS BATTERED".
+				int messageOffset = 0x0F;
+				if (damage >= 7) messageOffset = 0x1A;
+				if (damage >= 25) messageOffset = 0x25;
+				displayStringAt(0xB7B1 + messageOffset);
+				nextRowInMessageWindow();
+
+				// "TAKES <damage> DAMAGE"
+				for (int j = 0; j < 0x0D; j++) {
+					outputChar(getMem(0xBC6E + j));
+					if (j == 5) outputWord(damage);
+				}
+
+				target.setCondition(Math.max(0, target.getCondition() - damage));
+				if (target.getCondition() == 0) {
+					nextRowInMessageWindow();
+					// "AND IS KILLED"
+					displayString(0xBC7B, 0x0D);
+					getGame().deleteCharacter(targetIndex);
+				}
+			}
+
+			displayStatsLines();
+			longDelay();
+			resetMessageWindowAndCursor();
+			delayInMillis(50);
+
+			// Party dead: exit the maze entirely.
+			if (!getGame().getCharacter(0).isValid()) {
+				m_exitMaze = true;
+				return false;
+			}
+
+			// Mid-round escape attempt ('E' key) — not on the last monster.
+			if (i < count - 1 && checkInfightEscape(monsterID, count)) {
+				// "YOU GO AWAY..."
+				displayString(0xBC20, 0x0F);
+				longDelay();
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Prompts every living character in turn for weapon vs spell, and stores
+	 * their choice on the Character. Mirrors ASM b9668..j96FF.
+	 */
+	private void askPartyActions() {
+		for (int i = 0; i < 3; i++) {
+			resetMessageWindowAndCursor();
+			delayInMillis(50);
+			Character character = getGame().getCharacter(i);
+			if (!character.isValid()) break;
+
+			// Warriors get (mazeXp / 8192) extra strikes; wizards get 0.
+			character.setNumberOfStrikes(character.getClassType() == 1
+					? character.getMazeXp() / 8192
+					: 0);
+
+			display(character.getNameAsBytes());
+			nextRowInMessageWindow();
+
+			// "(W)EAP OR (S)PEL"
+			displayString(0xBC10, 0x10);
+
+			int key = readKeyboardAsPETSCII();
+			while (key != 0x53 && key != 0x57) {
+				key = readKeyboardAsPETSCII();
+			}
+
+			if (key == 0x57) { // 'W'
+				character.setSpellNumber(0);
+				continue;
+			}
+
+			next2RowsInMessageWindow();
+			// "SPELL NUMBER: "
+			displayString(0xBC88, 0x0E);
+			int spellNumber = convertToWord(readChars(3)) & 0x0FF;
+			if (spellNumber > 18) spellNumber = 0;
+
+			// A3C0[n] == 0 marks combat spells. Non-combat or underfunded → fall back to weapon.
+			if (getMem(0xA3C0 + spellNumber) == 0) {
+				int requiredSpellPoints = getMemU(0xA3D3 + spellNumber);
+				if (requiredSpellPoints > character.getSpellPoints()) {
+					spellNumber = 0;
+				} else {
+					character.setSpellPoints(character.getSpellPoints() - requiredSpellPoints);
+				}
+			} else {
+				spellNumber = 0;
+			}
+			character.setSpellNumber(spellNumber);
+		}
+	}
+
+	/**
+	 * Each character executes the action queued by {@link #askPartyActions()}.
+	 * Warriors may attack multiple times (strikes counter on the Character).
+	 * Returns {@code true} to continue the fight, {@code false} if the party
+	 * successfully escaped via the 'E' key.
+	 */
+	private boolean partyAttackPhase(int monsterID, int count, int[] monstersHP) {
+		int fightingCharacterIndex = 0;
+		while (fightingCharacterIndex < 3
+				&& getGame().getCharacter(fightingCharacterIndex).isValid()
+				&& m_fightDeadMonsters < count) {
+			resetMessageWindowAndCursor();
+			delayInMillis(50);
+
+			if (checkInfightEscape(monsterID, count)) {
+				// "YOU GO AWAY..."
+				displayString(0xBC20, 0x0F);
+				longDelay();
+				return false;
+			}
+
+			Character character = getGame().getCharacter(fightingCharacterIndex);
+			display(character.getNameAsBytes());
+			nextRowInMessageWindow();
+			int spellNumber = character.getSpellNumber();
+			int numberOfTurns = character.getNumberOfStrikes();
+
+			if (spellNumber == 0) {
+				characterWeaponAttack(character, monsterID, monstersHP);
+				// Warrior strikes persist on the character (ASM j990B).
+				if (numberOfTurns > 0) {
+					character.setNumberOfStrikes(numberOfTurns - 1);
+				} else {
+					fightingCharacterIndex++;
+				}
+			} else {
+				// "CAST A SPELL..."
+				displayString(0xBC3E, 0x10);
+				applyCombatSpell(spellNumber, monsterID, monstersHP);
+				fightingCharacterIndex++;
+			}
+
+			longDelay();
+		}
+		return true;
+	}
+
+	/**
+	 * One weapon swing from a single character against the first living monster.
+	 * Updates {@code monstersHP} and {@link #m_fightDeadMonsters}.
+	 */
+	private void characterWeaponAttack(Character character, int monsterID, int[] monstersHP) {
+		// HIT score = rand(2..17) + dex bonus + party bonus + item bonus + warrior XP bonus
+		int hitScore = RANDOM.nextInt(16) + 2;
+		hitScore += Math.max(0, character.getDexterity() - 15);
+		hitScore += m_fightPartyHitScoreBonus;
+		if (character.getItemCode(3) == 0x02) hitScore += 4;           // Ring of accuracy
+		if (character.getClassType() == 0x01) {
+			hitScore += character.getMazeXp() / 2048;                   // warrior only
+		}
+
+		int monsterAR = getMemU(0xA4C0 + monsterID);
+		int dodgeScore = getMemU(0x5300 + monsterAR);
+
+		if (hitScore <= dodgeScore) {
+			// "MISSED"
+			displayString(0xBC65 + 0x03, 0x09 - 0x03);
+			return;
+		}
+
+		// Weapon damage mask at A407: None=$03, Sword=$07, MagicSword=$0F, RuneMace=$1F, Wrathblade=$3F
+		int weapon = character.getItemCode(0);
+		int damage = 1 + (RANDOM.nextInt(256) & getMemU(0xA407 + weapon));
+		damage += Math.max(0, character.getStrength() - 15);
+		if (character.getClassType() == 0x01) {
+			damage += character.getMazeXp() / 2048;
+		}
+
+		// "GLANCES HIS FOE" / "SLASHES HIS FOE" / "STRIKES MIGHTILY" depending on damage.
+		int textOffset = 0;
+		if (damage >= 5) textOffset = 0x10;
+		if (damage >= 20) textOffset = 0x20;
+		displayStringAt(0xB780 + textOffset);
+
+		nextRowInMessageWindow();
+		// "HITS FOR <damage> PTS"
+		for (int j = 0; j < 0x0D; j++) {
+			outputChar(getMem(0xBC4E + j));
+			if (j == 8) outputWord(damage);
+		}
+
+		// Damage hits the first still-alive monster in the array (ASM b98D0).
+		for (int m = 0; m < monstersHP.length; m++) {
+			if (monstersHP[m] > 0) {
+				monstersHP[m] = Math.max(0, monstersHP[m] - damage);
+				if (monstersHP[m] == 0) {
+					m_fightDeadMonsters++;
+					nextRowInMessageWindow();
+					// "KILLED ONE"
+					displayString(0xBC5B, 0x0A);
+				}
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Dispatches a combat spell: 1/5/9/17 are damage spells, 2/6/10 lower the
+	 * party's AR, 13 boosts the party's hit score. Updates state shared with
+	 * {@link #characterWeaponAttack}.
+	 */
+	private void applyCombatSpell(int spellNumber, int monsterID, int[] monstersHP) {
+		switch (spellNumber) {
+			case 1: case 5: case 9: case 17:
+				m_fightDeadMonsters = castAttackSpell(spellNumber, monsterID, monstersHP, m_fightDeadMonsters);
+				return;
+			case 2:  m_fightMagicARReduction = 0x02; return;   // SHIELD
+			case 6:  m_fightMagicARReduction = 0x04; return;   // PROTECT
+			case 10: m_fightMagicARReduction = 0x06; return;   // GUARDIAN
+			case 13: m_fightPartyHitScoreBonus = 0x04; return; // ACCURACY
+			default:
+				// Unreachable: askPartyActions filters non-combat spells to 0 (weapon).
+				throw new IllegalStateException("unexpected spell number " + spellNumber);
 		}
 	}
 
@@ -1420,7 +1349,7 @@ public class MazeState extends GameState {
 	 * @return 
 	 */
 	private int castAttackSpell(int spellNumber, int monsterID, int[] monstersHP, int deadMonsters) {
-		int mask = getMem(0xA3F5+spellNumber) & 0xFF;
+		int mask = getMemU(0xA3F5+spellNumber);
 		for (int i=0;i<monstersHP.length;i++) {
 			// Skip already-dead monsters (ASM b97D5). Fireball must keep
 			// searching until it finds a live target before stopping.
@@ -1471,7 +1400,7 @@ public class MazeState extends GameState {
 		triggers[m_lastTriggerIndex << 1] = (byte) 0xff;
 		
 		// ASM b9B09: LDA/ASL on an unsigned byte — result is (HP*2) mod 256.
-		int goldGained = ((getMem(0xA498+monsterID) & 0xFF) << 1) & 0xFF;
+		int goldGained = (getMemU(0xA498+monsterID) << 1) & 0xFF;
 		outputWord(goldGained);
 		
 		// Display bytes 0E,21,19,0E,1B,12,0E,17,0C,0E,2A,24 that matches string "EXPERIENCE: " at in message window	
@@ -1485,7 +1414,7 @@ public class MazeState extends GameState {
 		}
 		else {
 			// Compute experience gain for this monster (ASM b9B3F).
-			xpGained = (getMem(0xA470+monsterID) & 0xFF) << 4;
+			xpGained = getMemU(0xA470+monsterID) << 4;
 			xpGained *= (count+1);
 
 			if (getGame().getCharacter(1).isValid()) {
@@ -1567,7 +1496,7 @@ public class MazeState extends GameState {
 		}
 		
 		// if monster attack bonus > sum dext, monster engage
-		int monsterAttackBonus = getMem(0xA470+monsterID);
+		int monsterAttackBonus = getMemU(0xA470+monsterID);
 		if (monsterAttackBonus > dexterity) {
 			return true;
 		}
@@ -1610,10 +1539,10 @@ public class MazeState extends GameState {
 	 */
 	private void drawHitStar() {
 		for (int i=0;i<8;i++) {
-			int startY = getMem(0xA56D+i);
-			int startX = getMem(0xA575+i);
-			int endY = getMem(0xA57D+i);
-			int endX = getMem(0xA585+i);
+			int startY = getMemU(0xA56D+i);
+			int startX = getMemU(0xA575+i);
+			int endY = getMemU(0xA57D+i);
+			int endX = getMemU(0xA585+i);
 			draw3DViewLine(startX, startY, endX, endY);
 		}
 	}
@@ -1880,7 +1809,7 @@ public class MazeState extends GameState {
 			byte itemCode = character.getItemCode(i);
 			if (itemCode > 0) {
 				// A42C holds unsigned offsets; entries for magic-item slot go up to $AF.
-				int nameOffset = getMem(0xA42C+itemCode+i*4) & 0xFF;
+				int nameOffset = getMemU(0xA42C+itemCode+i*4);
 				displayStringAt(0xBF00+nameOffset);
 			}
 		}
@@ -1945,9 +1874,9 @@ public class MazeState extends GameState {
 			// Compute and display character armor (the lower, the better)
 			// Once computed, value is store at offset $20 of character data
 			byte armorId = character.getItemCode(1);
-			int armorRating = getMem(0xA3F0+armorId);
+			int armorRating = getMemU(0xA3F0+armorId);
 			byte shieldId = character.getItemCode(2);
-			armorRating -= getMem(0xA3EB+shieldId);
+			armorRating -= getMemU(0xA3EB+shieldId);
 			if (character.getDexterity() > 15) {
 				armorRating -= character.getDexterity()-15;
 			}
@@ -2010,7 +1939,7 @@ public class MazeState extends GameState {
 				xp += character.getXp() >> 10;  // On utilise l'XP et pas l'XP temp ???? (surement un bug dans l'original)
 			}
 		}
-		int threshold = getMem(0xA3E6+m_level) & 0x0FF;
+		int threshold = getMemU(0xA3E6+m_level);
 		m_wanderingMonsters = xp <= threshold;
 		
 	}
@@ -2106,325 +2035,213 @@ public class MazeState extends GameState {
 	}
 
 	private void drawLeftWalls(WallType[][] facingWalls, int depth) {
-		// draw left wall
-		// Coordinates of left wall vertices for all 5 depth :
-		// ($00,$9F) ($00,$00) ($0F,$0F) ($0F,$91)
-		// ($0F,$91) ($0F,$0F) ($28,$28) ($28,$78)
-		// ($28,$78) ($28,$28) ($3C,$3C) ($3C,$64)
-		// ($3C,$64) ($3C,$3C) ($46,$46) ($46,$5A)
-		// ($46,$5A) ($46,$46) ($4B,$4B) ($4B,$55)
-		int[][] coordinates = new int[][] {
-			{0x00, 0x9F, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x91},
-			{0x0F, 0x91, 0x0F, 0x0F, 0x28, 0x28, 0x28, 0x78},
-			{0x28, 0x78, 0x28, 0x28, 0x3C, 0x3C, 0x3C, 0x64},
-			{0x3C, 0x64, 0x3C, 0x3C, 0x46, 0x46, 0x46, 0x5A},
-			{0x46, 0x5A, 0x46, 0x46, 0x4B, 0x4B, 0x4B, 0x55}
-		};
 		WallType leftWall = facingWalls[depth][0];
 		if (leftWall != WallType.NONE) {
-			int[] toDraw = coordinates[depth];
-			for (int i=0;i<toDraw.length;i+=2) {
-				draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
+			// Wall directly on our left.
+			drawClosedPolyline(LEFT_WALL[depth]);
+			if (shouldDrawDoor(leftWall)) {
+				drawClosedPolyline(LEFT_DOOR[depth]);
 			}
-			// Should draw a door ?
-			if (leftWall == WallType.DOOR || (leftWall == WallType.HIDDEN && m_lightCounter > 0)) {
-				// draw door on left wall
-				// Draw door on left
-				// Coordinates of left door vertices for all 5 depth :
-				// ($00,$9F) ($00,$0A) ($06,$10) ($06,$9A) 
-				// ($14,$8C) ($14,$1C) ($24,$2C) ($24,$7C) 
-				// ($2C,$74) ($2C,$32) ($39,$3F) ($39,$67) 
-				// ($3F,$61) ($3F,$43) ($44,$48) ($44,$5C) 
-				// ($47,$59) ($47,$49) ($4A,$4C) ($4A,$56) 
-				int[][] doorCoordinates = new int[][] {
-					{0x00, 0x9F, 0x00, 0x0A, 0x06, 0x10, 0x06, 0x9A},
-					{0x14, 0x8C, 0x14, 0x1C, 0x24, 0x2C, 0x24, 0x7C},
-					{0x2C, 0x74, 0x2C, 0x32, 0x39, 0x3F, 0x39, 0x67},
-					{0x3F, 0x61, 0x3F, 0x43, 0x44, 0x48, 0x44, 0x5C},
-					{0x47, 0x59, 0x47, 0x49, 0x4A, 0x4C, 0x4A, 0x56}
-				};
-				toDraw = doorCoordinates[depth];
-				for (int i=0;i<toDraw.length;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
-				}
-			}
+			return;
 		}
-		else {
-			// Draw wall in front, at our left
-			// Warning : it does not draw the part that could be hidden by possible left wall at previous depth
-			WallType leftFacingWall = facingWalls[depth][3];
-			if (leftFacingWall == WallType.NONE) {
-				return;
-			}
-			// ($00,$0F) ($0F,$0F) ($0F,$91) ($00,$91)
-			// ($0F,$28) ($28,$28) ($28,$78) ($0F,$78)
-			// ($28,$3C) ($3C,$3C) ($3C,$64) ($28,$64)
-			// ($3C,$46) ($46,$46) ($46,$5A) ($3C,$5A)
-			// ($46,$4B) ($4B,$4B) ($4B,$55) ($46,$55)
-			coordinates = new int[][] {
-				{0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x91, 0x00, 0x91},
-				{0x0F, 0x28, 0x28, 0x28, 0x28, 0x78, 0x0F, 0x78},
-				{0x28, 0x3C, 0x3C, 0x3C, 0x3C, 0x64, 0x28, 0x64},
-				{0x3C, 0x46, 0x46, 0x46, 0x46, 0x5A, 0x3C, 0x5A},
-				{0x46, 0x4B, 0x4B, 0x4B, 0x4B, 0x55, 0x46, 0x55}
-			};
-			int[] toDraw = coordinates[depth];
-			for (int i=0;i<toDraw.length-2;i+=2) {
-				draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-			}
-			// Should draw a door ?
-			if (leftFacingWall == WallType.DOOR || (leftFacingWall == WallType.HIDDEN && m_lightCounter > 0)) {
-				// Draw door in front, at our left
-				// Coordinates of left door vertices for all 5 depth :
-				// Warning : it does not draw the part that could be hidden by possible left wall at previous depth
-				// ($00,$1E) ($00,$1E) ($00,$91) 
-				// ($0F,$32) ($1E,$32) ($1E,$78) 
-				// ($28,$42) ($36,$42) ($36,$64) 
-				// ($3C,$4A) ($42,$4A) ($42,$5A) 
-				// ($46,$4D) ($49,$4D) ($49,$55)
-				int[][] doorCoordinates = new int[][] {
-					{0x00, 0x1E, 0x00, 0x1E, 0x00, 0x91},
-					{0x0F, 0x32, 0x1E, 0x32, 0x1E, 0x78},
-					{0x28, 0x42, 0x36, 0x42, 0x36, 0x64},
-					{0x3C, 0x4A, 0x42, 0x4A, 0x42, 0x5A},
-					{0x46, 0x4D, 0x49, 0x4D, 0x49, 0x55,}
-				};
-				toDraw = doorCoordinates[depth];
-				for (int i=0;i<toDraw.length-2;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-				}
-			}
-			
-			// Draw the hidden part of front wall at left
-			if (depth > 0 && facingWalls[depth-1][0] == WallType.NONE && facingWalls[depth-1][3] == WallType.NONE) {
-				// Coordinates of front wall at left vertices for all 5 depth :
-				// Note : this wall has no part hidden by other wall
-				// ($00,$0F) ($00,$00) ($00,$91) ($00,$91) <- may never be use...
-				// ($0F,$28) ($00,$28) ($00,$78) ($0F,$78)
-				// ($28,$3C) ($14,$3C) ($14,$64) ($28,$64)
-				// ($3C,$46) ($32,$46) ($32,$5A) ($3C,$5A)
-				// ($46,$4B) ($41,$4B) ($41,$55) ($46,$55)
-				coordinates = new int[][] {
-					{0x00, 0x0F, 0x00, 0x00, 0x00, 0x91, 0x00, 0x91},
-					{0x0F, 0x28, 0x00, 0x28, 0x00, 0x78, 0x0F, 0x78},
-					{0x28, 0x3C, 0x14, 0x3C, 0x14, 0x64, 0x28, 0x64},
-					{0x3C, 0x46, 0x32, 0x46, 0x32, 0x5A, 0x3C, 0x5A},
-					{0x46, 0x4B, 0x41, 0x4B, 0x41, 0x55, 0x46, 0x55}
-				};
-				toDraw = coordinates[depth];
-				for (int i=0;i<toDraw.length-2;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-				}
-				// Should draw a door ?
-				if (leftFacingWall == WallType.DOOR || (leftFacingWall == WallType.HIDDEN && m_lightCounter > 0)) {
-					// Coordinates of front door at left vertices for all 5 depth :
-					// Note : this door has no part hidden by other wall
-					// ($00,$1E) ($00,$00) ($00,$91) 
-					// ($0F,$32) ($00,$32) ($00,$78) 
-					// ($28,$42) ($1A,$42) ($1A,$64) 
-					// ($3C,$4A) ($36,$4A) ($36,$5A)
-					// ($46,$4D) ($43,$4D) ($43,$55)
-					int[][] doorCoordinates = new int[][] {
-						{0x00, 0x1E, 0x00, 0x00, 0x00, 0x91},
-						{0x0F, 0x32, 0x00, 0x32, 0x00, 0x78},
-						{0x28, 0x42, 0x1A, 0x42, 0x1A, 0x64},
-						{0x3C, 0x4A, 0x36, 0x4A, 0x36, 0x5A},
-						{0x46, 0x4D, 0x43, 0x4D, 0x43, 0x55,}
-					};
-					toDraw = doorCoordinates[depth];
-					for (int i=0;i<toDraw.length-2;i+=2) {
-						draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-					}
-				}
+		// No left wall: we can see the left neighbour's front wall instead.
+		WallType leftFacingWall = facingWalls[depth][3];
+		if (leftFacingWall == WallType.NONE) {
+			return;
+		}
+		drawOpenPolyline(LEFT_FRONT_WALL[depth]);
+		if (shouldDrawDoor(leftFacingWall)) {
+			drawOpenPolyline(LEFT_FRONT_DOOR[depth]);
+		}
+		// Finally, the part of the neighbour's front wall hidden by any wall
+		// of the previous (nearer) depth — drawn only when that depth was fully open.
+		if (depth > 0
+				&& facingWalls[depth-1][0] == WallType.NONE
+				&& facingWalls[depth-1][3] == WallType.NONE) {
+			drawOpenPolyline(LEFT_HIDDEN_WALL[depth]);
+			if (shouldDrawDoor(leftFacingWall)) {
+				drawOpenPolyline(LEFT_HIDDEN_DOOR[depth]);
 			}
 		}
 	}
-	
+
 	private void drawRightWalls(WallType[][] facingWalls, int depth) {
-		// draw right wall
-		// Coordinates of left wall vertices for all 5 depth :
-		// ($9F,$9F) ($9F,$00) ($91,$0F) ($91,$91)
-		// ($91,$91) ($91,$0F) ($78,$28) ($78,$78)
-		// ($78,$78) ($78,$28) ($64,$3C) ($64,$64)
-		// ($64,$64) ($64,$3C) ($5A,$46) ($5A,$5A)
-		// ($5A,$5A) ($5A,$46) ($55,$4B) ($55,$55)
-		int[][] coordinates = new int[][] {
-			{0x9F, 0x9F, 0x9F, 0x00, 0x91, 0x0F, 0x91, 0x91},
-			{0x91, 0x91, 0x91, 0x0F, 0x78, 0x28, 0x78, 0x78},
-			{0x78, 0x78, 0x78, 0x28, 0x64, 0x3C, 0x64, 0x64},
-			{0x64, 0x64, 0x64, 0x3C, 0x5A, 0x46, 0x5A, 0x5A},
-			{0x5A, 0x5A, 0x5A, 0x46, 0x55, 0x4B, 0x55, 0x55}
-		};
 		WallType rightWall = facingWalls[depth][1];
 		if (rightWall != WallType.NONE) {
-			int[] toDraw = coordinates[depth];
-			for (int i=0;i<toDraw.length;i+=2) {
-				draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
+			drawClosedPolyline(RIGHT_WALL[depth]);
+			if (shouldDrawDoor(rightWall)) {
+				drawClosedPolyline(RIGHT_DOOR[depth]);
 			}
-			// Should draw a door ?
-			if (rightWall == WallType.DOOR || (rightWall == WallType.HIDDEN && m_lightCounter > 0)) {
-				// draw door on right wall
-				// Draw door on right
-				// Coordinates of right door vertices for all 5 depth :
-				// ($9F,$9F) ($9F,$0A) ($9A,$10) ($9A,$9A) 
-				// ($8C,$8C) ($8C,$1C) ($7C,$2C) ($7C,$7C) 
-				// ($74,$74) ($74,$32) ($67,$3F) ($67,$67) 
-				// ($61,$61) ($61,$43) ($5C,$48) ($5C,$5C) 
-				// ($59,$59) ($59,$49) ($56,$4C) ($56,$56) 
-				int[][] doorCoordinates = new int[][] {
-					{0x9F, 0x9F, 0x9F, 0x0A, 0x9A, 0x10, 0x9A, 0x9A},
-					{0x8C, 0x8C, 0x8C, 0x1C, 0x7C, 0x2C, 0x7C, 0x7C},
-					{0x74, 0x74, 0x74, 0x32, 0x67, 0x3F, 0x67, 0x67},
-					{0x61, 0x61, 0x61, 0x43, 0x5C, 0x48, 0x5C, 0x5C},
-					{0x59, 0x59, 0x59, 0x49, 0x56, 0x4C, 0x56, 0x56}
-				};
-
-				toDraw = doorCoordinates[depth];
-				for (int i=0;i<toDraw.length;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
-				}
-			}
+			return;
 		}
-		else {
-			// Draw wall in front, at our right
-			// Warning : it does not draw the part that could be hidden by possible right wall at previous depth
-			WallType rightFacingWall = facingWalls[depth][4];
-			if (rightFacingWall == WallType.NONE) {
-				return;
-			}
-			// ($9F,$0F) ($91,$0F) ($91,$91) ($9F,$91)
-			// ($91,$28) ($78,$28) ($78,$78) ($91,$78)
-			// ($78,$3C) ($64,$3C) ($64,$64) ($78,$64)
-			// ($64,$46) ($5A,$46) ($5A,$5A) ($64,$5A)
-			// ($5A,$4B) ($55,$4B) ($55,$55) ($5A,$55)
-			coordinates = new int[][] {
-				{0x9F, 0x0F, 0x91, 0x0F, 0x91, 0x91, 0x9F, 0x91},
-				{0x91, 0x28, 0x78, 0x28, 0x78, 0x78, 0x91, 0x78},
-				{0x78, 0x3C, 0x64, 0x3C, 0x64, 0x64, 0x78, 0x64},
-				{0x64, 0x46, 0x5A, 0x46, 0x5A, 0x5A, 0x64, 0x5A},
-				{0x5A, 0x4B, 0x55, 0x4B, 0x55, 0x55, 0x5A, 0x55}
-			};
-			int[] toDraw = coordinates[depth];
-			for (int i=0;i<toDraw.length-2;i+=2) {
-				draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-			}
-			// Should draw a door ?
-			if (rightFacingWall == WallType.DOOR || (rightFacingWall == WallType.HIDDEN && m_lightCounter > 0)) {
-				// Draw door in front, at our right
-				// Coordinates of right door vertices for all 5 depth :
-				// Warning : it does not draw the part that could be hidden by possible left wall at previous depth
-				// ($9F,$1E) ($9F,$1E) ($9F,$91) 
-				// ($91,$32) ($82,$32) ($82,$78) 
-				// ($78,$42) ($6A,$42) ($6A,$64) 
-				// ($64,$4A) ($5E,$4A) ($5E,$5A) 
-				// ($5A,$4D) ($57,$4D) ($57,$55) 
-				int[][] doorCoordinates = new int[][] {
-					{0x9F, 0x1E, 0x9F, 0x1E, 0x9F, 0x91},
-					{0x91, 0x32, 0x82, 0x32, 0x82, 0x78},
-					{0x78, 0x42, 0x6A, 0x42, 0x6A, 0x64},
-					{0x64, 0x4A, 0x5E, 0x4A, 0x5E, 0x5A},
-					{0x5A, 0x4D, 0x57, 0x4D, 0x57, 0x55}
-				};
-
-				toDraw = doorCoordinates[depth];
-				for (int i=0;i<toDraw.length-2;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-				}
-			}
-			
-			// Draw the hidden part of front wall at right
-			if (depth > 0 && facingWalls[depth-1][1] == WallType.NONE && facingWalls[depth-1][4] == WallType.NONE) {
-				// Coordinates of front wall at left vertices for all 5 depth :
-				// Note : this wall has no part hidden by other wall
-				// ($9F,$0F) ($00,$00) ($00,$91) ($9F,$91) 
-				// ($91,$28) ($9F,$28) ($9F,$78) ($91,$78)
-				// ($78,$3C) ($8C,$3C) ($8C,$64) ($78,$64)
-				// ($64,$46) ($6E,$46) ($6E,$5A) ($64,$5A)
-				// ($5A,$4B) ($5F,$4B) ($5F,$55) ($5A,$55)
-				coordinates = new int[][] {
-					{0x9F, 0x0F, 0x00, 0x00, 0x00, 0x91, 0x9D, 0x91},
-					{0x91, 0x28, 0x9F, 0x28, 0x9F, 0x78, 0x91, 0x78},
-					{0x78, 0x3C, 0x8C, 0x3C, 0x8C, 0x64, 0x78, 0x64},
-					{0x64, 0x46, 0x6E, 0x46, 0x6E, 0x5A, 0x64, 0x5A},
-					{0x5A, 0x4B, 0x5F, 0x4B, 0x5F, 0x55, 0x5A, 0x55}
-				};
-				toDraw = coordinates[depth];
-				for (int i=0;i<toDraw.length-2;i+=2) {
-					draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-				}
-				// Should draw a door ?
-				if (rightFacingWall == WallType.DOOR || (rightFacingWall == WallType.HIDDEN && m_lightCounter > 0)) {
-					// Coordinates of front door at left vertices for all 5 depth :
-					// Note : this door has no part hidden by other wall
-					// ($9F,$1E) ($00,$00) ($00,$91) 
-					// ($91,$32) ($9F,$32) ($9F,$78) 
-					// ($78,$42) ($86,$42) ($86,$64) 
-					// ($64,$4A) ($6A,$4A) ($6A,$5A)
-					// ($5A,$4D) ($5D,$4D) ($5D,$55)
-					int[][] doorCoordinates = new int[][] {
-						{0x9F, 0x1E, 0x00, 0x00, 0x00, 0x91},
-						{0x91, 0x32, 0x9F, 0x32, 0x9F, 0x78},
-						{0x78, 0x42, 0x86, 0x42, 0x86, 0x64},
-						{0x64, 0x4A, 0x6A, 0x4A, 0x6A, 0x5A},
-						{0x5A, 0x4D, 0x5D, 0x4D, 0x5D, 0x55,}
-					};
-					toDraw = doorCoordinates[depth];
-					for (int i=0;i<toDraw.length-2;i+=2) {
-						draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[i+2], toDraw[i+3]);
-					}
-				}
+		WallType rightFacingWall = facingWalls[depth][4];
+		if (rightFacingWall == WallType.NONE) {
+			return;
+		}
+		drawOpenPolyline(RIGHT_FRONT_WALL[depth]);
+		if (shouldDrawDoor(rightFacingWall)) {
+			drawOpenPolyline(RIGHT_FRONT_DOOR[depth]);
+		}
+		if (depth > 0
+				&& facingWalls[depth-1][1] == WallType.NONE
+				&& facingWalls[depth-1][4] == WallType.NONE) {
+			drawOpenPolyline(RIGHT_HIDDEN_WALL[depth]);
+			if (shouldDrawDoor(rightFacingWall)) {
+				drawOpenPolyline(RIGHT_HIDDEN_DOOR[depth]);
 			}
 		}
 	}
-	
+
 	private void drawFrontWalls(WallType[][] facingWalls, int depth) {
-		
 		WallType frontWall = facingWalls[depth][2];
 		if (frontWall == WallType.NONE) {
 			return;
 		}
-
-		// Coordinates of left wall vertices for all 5 depth :
-		// ($0F,$0F) ($91,$0F) ($91,$91) ($0F,$91)
-		// ($28,$28) ($78,$28) ($78,$78) ($28,$78)
-		// ($3C,$3C) ($64,$3C) ($64,$64) ($3C,$64)
-		// ($46,$46) ($5A,$46) ($5A,$5A) ($46,$5A)
-		// ($4B,$4B) ($55,$4B) ($55,$55) ($4B,$55)
-		int[][] coordinates = new int[][] {
-			{0x0F, 0x0F, 0x91, 0x0F, 0x91, 0x91, 0x0F, 0x91},
-			{0x28, 0x28, 0x78, 0x28, 0x78, 0x78, 0x28, 0x78},
-			{0x3C, 0x3C, 0x64, 0x3C, 0x64, 0x64, 0x3C, 0x64},
-			{0x46, 0x46, 0x5A, 0x46, 0x5A, 0x5A, 0x46, 0x5A},
-			{0x4B, 0x4B, 0x55, 0x4B, 0x55, 0x55, 0x4B, 0x55}
-		};
-
-		int[] toDraw = coordinates[depth];
-		for (int i=0;i<toDraw.length;i+=2) {
-			draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
-		}
-		// Should draw a door ?
-		if (frontWall == WallType.DOOR || (frontWall == WallType.HIDDEN && m_lightCounter > 0)) {
-			// draw door on right wall
-			// Draw door on right
-			// Coordinates of right door vertices for all 5 depth :
-			// ($1E,$91) ($1E,$1E) ($82,$1E) ($82,$91) 
-			// ($32,$78) ($32,$32) ($6E,$32) ($6E,$78) 
-			// ($42,$64) ($42,$42) ($5E,$42) ($5E,$64) 
-			// ($4A,$5A) ($4A,$4A) ($56,$4A) ($56,$5A) 
-			// ($4D,$55) ($4D,$4D) ($53,$4D) ($53,$55)
-			int[][] doorCoordinates = new int[][] {
-				{0x1E, 0x91, 0x1E, 0x1E, 0x82, 0x1E, 0x82, 0x91},
-				{0x32, 0x78, 0x32, 0x32, 0x6E, 0x32, 0x6E, 0x78},
-				{0x42, 0x64, 0x42, 0x42, 0x5E, 0x42, 0x5E, 0x64},
-				{0x4A, 0x5A, 0x4A, 0x4A, 0x56, 0x4A, 0x56, 0x5A},
-				{0x4D, 0x55, 0x4D, 0x4D, 0x53, 0x4D, 0x53, 0x55}
-			};
-			toDraw = doorCoordinates[depth];
-			for (int i=0;i<toDraw.length;i+=2) {
-				draw3DViewLine(toDraw[i], toDraw[i+1], toDraw[(i+2)%8], toDraw[(i+3)%8]);
-			}
+		drawClosedPolyline(FRONT_WALL[depth]);
+		if (shouldDrawDoor(frontWall)) {
+			drawClosedPolyline(FRONT_DOOR[depth]);
 		}
 	}
+
+	/** A door is visible when it's an explicit door, or when light lets us see hidden passages. */
+	private boolean shouldDrawDoor(WallType wall) {
+		return wall == WallType.DOOR || (wall == WallType.HIDDEN && m_lightCounter > 0);
+	}
+
+	/** Connect each pair of vertices AND close back from the last to the first. */
+	private void drawClosedPolyline(int[] coords) {
+		for (int i = 0; i < coords.length; i += 2) {
+			int next = (i + 2) % coords.length;
+			draw3DViewLine(coords[i], coords[i+1], coords[next], coords[next+1]);
+		}
+	}
+
+	/** Connect each pair of vertices without closing the shape. */
+	private void drawOpenPolyline(int[] coords) {
+		for (int i = 0; i < coords.length - 2; i += 2) {
+			draw3DViewLine(coords[i], coords[i+1], coords[i+2], coords[i+3]);
+		}
+	}
+
+	// ==============================================================================
+	// 3D view polyline tables. Each table has one entry per view depth (0..4). The
+	// "closed" ones (wall on our left/right/front, or the corresponding doors) loop
+	// the last vertex back to the first; the "open" ones (neighbours seen through
+	// an absent side wall + the hidden part drawn in front) only connect sequential
+	// vertices. Values are screen pixels within the 160x160 3D viewport.
+	// ==============================================================================
+
+	// Wall directly on our left at each depth (closed rectangle, 4 vertices).
+	private static final int[][] LEFT_WALL = {
+		{0x00, 0x9F, 0x00, 0x00, 0x0F, 0x0F, 0x0F, 0x91},
+		{0x0F, 0x91, 0x0F, 0x0F, 0x28, 0x28, 0x28, 0x78},
+		{0x28, 0x78, 0x28, 0x28, 0x3C, 0x3C, 0x3C, 0x64},
+		{0x3C, 0x64, 0x3C, 0x3C, 0x46, 0x46, 0x46, 0x5A},
+		{0x46, 0x5A, 0x46, 0x46, 0x4B, 0x4B, 0x4B, 0x55}
+	};
+	private static final int[][] LEFT_DOOR = {
+		{0x00, 0x9F, 0x00, 0x0A, 0x06, 0x10, 0x06, 0x9A},
+		{0x14, 0x8C, 0x14, 0x1C, 0x24, 0x2C, 0x24, 0x7C},
+		{0x2C, 0x74, 0x2C, 0x32, 0x39, 0x3F, 0x39, 0x67},
+		{0x3F, 0x61, 0x3F, 0x43, 0x44, 0x48, 0x44, 0x5C},
+		{0x47, 0x59, 0x47, 0x49, 0x4A, 0x4C, 0x4A, 0x56}
+	};
+
+	// Front wall of the left neighbour, visible when no wall is on our immediate left.
+	private static final int[][] LEFT_FRONT_WALL = {
+		{0x00, 0x0F, 0x0F, 0x0F, 0x0F, 0x91, 0x00, 0x91},
+		{0x0F, 0x28, 0x28, 0x28, 0x28, 0x78, 0x0F, 0x78},
+		{0x28, 0x3C, 0x3C, 0x3C, 0x3C, 0x64, 0x28, 0x64},
+		{0x3C, 0x46, 0x46, 0x46, 0x46, 0x5A, 0x3C, 0x5A},
+		{0x46, 0x4B, 0x4B, 0x4B, 0x4B, 0x55, 0x46, 0x55}
+	};
+	private static final int[][] LEFT_FRONT_DOOR = {
+		{0x00, 0x1E, 0x00, 0x1E, 0x00, 0x91},
+		{0x0F, 0x32, 0x1E, 0x32, 0x1E, 0x78},
+		{0x28, 0x42, 0x36, 0x42, 0x36, 0x64},
+		{0x3C, 0x4A, 0x42, 0x4A, 0x42, 0x5A},
+		{0x46, 0x4D, 0x49, 0x4D, 0x49, 0x55}
+	};
+
+	// The chunk of neighbour's front wall that would otherwise be hidden by the
+	// previous-depth walls — drawn only when the previous depth is fully open.
+	// Depth-0 rows are never used at runtime (the guard requires depth > 0).
+	private static final int[][] LEFT_HIDDEN_WALL = {
+		{0x00, 0x0F, 0x00, 0x00, 0x00, 0x91, 0x00, 0x91},
+		{0x0F, 0x28, 0x00, 0x28, 0x00, 0x78, 0x0F, 0x78},
+		{0x28, 0x3C, 0x14, 0x3C, 0x14, 0x64, 0x28, 0x64},
+		{0x3C, 0x46, 0x32, 0x46, 0x32, 0x5A, 0x3C, 0x5A},
+		{0x46, 0x4B, 0x41, 0x4B, 0x41, 0x55, 0x46, 0x55}
+	};
+	private static final int[][] LEFT_HIDDEN_DOOR = {
+		{0x00, 0x1E, 0x00, 0x00, 0x00, 0x91},
+		{0x0F, 0x32, 0x00, 0x32, 0x00, 0x78},
+		{0x28, 0x42, 0x1A, 0x42, 0x1A, 0x64},
+		{0x3C, 0x4A, 0x36, 0x4A, 0x36, 0x5A},
+		{0x46, 0x4D, 0x43, 0x4D, 0x43, 0x55}
+	};
+
+	// Mirror of LEFT_* on the right side of the viewport.
+	private static final int[][] RIGHT_WALL = {
+		{0x9F, 0x9F, 0x9F, 0x00, 0x91, 0x0F, 0x91, 0x91},
+		{0x91, 0x91, 0x91, 0x0F, 0x78, 0x28, 0x78, 0x78},
+		{0x78, 0x78, 0x78, 0x28, 0x64, 0x3C, 0x64, 0x64},
+		{0x64, 0x64, 0x64, 0x3C, 0x5A, 0x46, 0x5A, 0x5A},
+		{0x5A, 0x5A, 0x5A, 0x46, 0x55, 0x4B, 0x55, 0x55}
+	};
+	private static final int[][] RIGHT_DOOR = {
+		{0x9F, 0x9F, 0x9F, 0x0A, 0x9A, 0x10, 0x9A, 0x9A},
+		{0x8C, 0x8C, 0x8C, 0x1C, 0x7C, 0x2C, 0x7C, 0x7C},
+		{0x74, 0x74, 0x74, 0x32, 0x67, 0x3F, 0x67, 0x67},
+		{0x61, 0x61, 0x61, 0x43, 0x5C, 0x48, 0x5C, 0x5C},
+		{0x59, 0x59, 0x59, 0x49, 0x56, 0x4C, 0x56, 0x56}
+	};
+	private static final int[][] RIGHT_FRONT_WALL = {
+		{0x9F, 0x0F, 0x91, 0x0F, 0x91, 0x91, 0x9F, 0x91},
+		{0x91, 0x28, 0x78, 0x28, 0x78, 0x78, 0x91, 0x78},
+		{0x78, 0x3C, 0x64, 0x3C, 0x64, 0x64, 0x78, 0x64},
+		{0x64, 0x46, 0x5A, 0x46, 0x5A, 0x5A, 0x64, 0x5A},
+		{0x5A, 0x4B, 0x55, 0x4B, 0x55, 0x55, 0x5A, 0x55}
+	};
+	private static final int[][] RIGHT_FRONT_DOOR = {
+		{0x9F, 0x1E, 0x9F, 0x1E, 0x9F, 0x91},
+		{0x91, 0x32, 0x82, 0x32, 0x82, 0x78},
+		{0x78, 0x42, 0x6A, 0x42, 0x6A, 0x64},
+		{0x64, 0x4A, 0x5E, 0x4A, 0x5E, 0x5A},
+		{0x5A, 0x4D, 0x57, 0x4D, 0x57, 0x55}
+	};
+	// Depth-0 row preserved as-is (including the 0x9D entry that does not match the
+	// symmetric pattern — never rendered thanks to the depth > 0 guard).
+	private static final int[][] RIGHT_HIDDEN_WALL = {
+		{0x9F, 0x0F, 0x00, 0x00, 0x00, 0x91, 0x9D, 0x91},
+		{0x91, 0x28, 0x9F, 0x28, 0x9F, 0x78, 0x91, 0x78},
+		{0x78, 0x3C, 0x8C, 0x3C, 0x8C, 0x64, 0x78, 0x64},
+		{0x64, 0x46, 0x6E, 0x46, 0x6E, 0x5A, 0x64, 0x5A},
+		{0x5A, 0x4B, 0x5F, 0x4B, 0x5F, 0x55, 0x5A, 0x55}
+	};
+	private static final int[][] RIGHT_HIDDEN_DOOR = {
+		{0x9F, 0x1E, 0x00, 0x00, 0x00, 0x91},
+		{0x91, 0x32, 0x9F, 0x32, 0x9F, 0x78},
+		{0x78, 0x42, 0x86, 0x42, 0x86, 0x64},
+		{0x64, 0x4A, 0x6A, 0x4A, 0x6A, 0x5A},
+		{0x5A, 0x4D, 0x5D, 0x4D, 0x5D, 0x55}
+	};
+
+	// Wall directly in front of us at each depth (closed rectangle).
+	private static final int[][] FRONT_WALL = {
+		{0x0F, 0x0F, 0x91, 0x0F, 0x91, 0x91, 0x0F, 0x91},
+		{0x28, 0x28, 0x78, 0x28, 0x78, 0x78, 0x28, 0x78},
+		{0x3C, 0x3C, 0x64, 0x3C, 0x64, 0x64, 0x3C, 0x64},
+		{0x46, 0x46, 0x5A, 0x46, 0x5A, 0x5A, 0x46, 0x5A},
+		{0x4B, 0x4B, 0x55, 0x4B, 0x55, 0x55, 0x4B, 0x55}
+	};
+	private static final int[][] FRONT_DOOR = {
+		{0x1E, 0x91, 0x1E, 0x1E, 0x82, 0x1E, 0x82, 0x91},
+		{0x32, 0x78, 0x32, 0x32, 0x6E, 0x32, 0x6E, 0x78},
+		{0x42, 0x64, 0x42, 0x42, 0x5E, 0x42, 0x5E, 0x64},
+		{0x4A, 0x5A, 0x4A, 0x4A, 0x56, 0x4A, 0x56, 0x5A},
+		{0x4D, 0x55, 0x4D, 0x4D, 0x53, 0x4D, 0x53, 0x55}
+	};
 
 	private enum WallType {
 		NONE,

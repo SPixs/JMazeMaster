@@ -43,6 +43,17 @@ public abstract class GameState {
 	public byte getMem(int adress) {
 		return getGame().getMem(adress);
 	}
+
+	/**
+	 * Read a byte from the C64 memory image as an unsigned value (0..255).
+	 * Prefer this over {@link #getMem(int)} when the byte represents a count,
+	 * offset, or coordinate — the raw byte is sign-extended to int otherwise,
+	 * which silently corrupts values with bit 7 set (Balrog HP, item name
+	 * offsets at $A42C+14/15/16, etc.).
+	 */
+	public int getMemU(int address) {
+		return getGame().getMem(address) & 0xFF;
+	}
 	
 	// =============================== Display control methods =========================
 	

@@ -142,7 +142,7 @@ public class MainMenuState extends GameState {
 		}
 		byte itemNumber = (byte) pressedNumber;
 		int itemDataOffset = (4 * itemType + pressedNumber) * 2;
-		int itemPrice = ((getMem(0xBFC1+itemDataOffset) << 8) & 0xFF00) | (getMem(0xBFC0+itemDataOffset) & 0x0FF);
+		int itemPrice = (getMemU(0xBFC1+itemDataOffset) << 8) | getMemU(0xBFC0+itemDataOffset);
 
 		if (itemPrice > selectedCharacter.getGold()) {
 			// Ouput screen codes 12,17,1C,1E,0F,0F,12,0C,12,0E,17,1D,24,0F,1E,17,0D,1C at (11,11) 
@@ -323,7 +323,7 @@ public class MainMenuState extends GameState {
 			}
 			
 			// Items name offset are stored in a table store at $A42C
-			int nameOffset = getMem(0xA42C+itemNumber) & 0x0FF;
+			int nameOffset = getMemU(0xA42C+itemNumber);
 			// Display item name at address $BF00+offset, delimited with char $FF
 			displayStringAt(0xBF00+nameOffset);
 		}
