@@ -159,20 +159,25 @@ public class MazeState extends GameState {
 			}
 			
 			// The code after is executed once every 4.86 seconds
-			// (nearly 4783506) cpu cycles
+			// (nearly 4783506) cpu cycles.
 			if (System.nanoTime() - startNanoTime > 4.8551e9) {
 				startNanoTime = System.nanoTime();
-				
-				// Look for wandering monsters 
+
+				// Wandering monster roll (ASM b86FB: random & $1F == 0 && a80 == 0).
 				if (m_wanderingMonsters && ((RANDOM.nextInt(32) & 0x1F) == 0)) {
 					encounterRandomMonster();
+					// ASM fall-through: after JMP j94C5, control returns to the
+					// main keyboard loop without going through b8707. The toggle
+					// flag ($7022) is NOT advanced. The Java port used to flip it
+					// anyway, putting light/heal one cycle out of phase after
+					// every wandering encounter.
 				}
 				else {
-					// Execute some code here half the time (light decline and characters healing)
-					// (nearly every 9.7 seconds, =9566743 cpu cycles)
+					// ASM b8707: toggle flag every 4.86 s; the light-decline and
+					// amulet-of-healing heal run on every other call (~9.7 s).
 					if (timerToggleFlag) {
-						// Process light decrease. ASM b8707: CMP #$F0 / BCS skip, i.e.
-						// counters ≥ $F0 (Staff of Light sets $FA) stay lit indefinitely.
+						// Light decrease. ASM: counters ≥ $F0 (Staff of Light sets
+						// $FA) stay lit indefinitely.
 						if (m_lightCounter > 0 && m_lightCounter < 0xF0) {
 							m_lightCounter--;
 							if (m_lightCounter == 0) {
@@ -180,7 +185,7 @@ public class MazeState extends GameState {
 								draw3DView();
 							}
 						}
-						
+
 						// Heal characters holding an 'Amulet of Healing'
 						boolean[] healPerformed = { false };
 						party().forEachAlive(c -> {
@@ -193,8 +198,8 @@ public class MazeState extends GameState {
 							displayStatsLines();
 						}
 					}
+					timerToggleFlag = !timerToggleFlag;
 				}
-				timerToggleFlag = !timerToggleFlag;
 			}
 		}
 		
