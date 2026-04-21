@@ -269,10 +269,8 @@ public class MazeState extends GameState {
 			return;
 		}
 		
-		byte spellCategory = getMem(0xA3C0+spellNumber);
-		
 		// if combat spell, display warning message in window and return to main loop
-		if (spellCategory == 0) {
+		if (rom().isCombatSpell(spellNumber)) {
 			m_charOutputRow++;
 			m_charOutputCol = 22;
 			m_messageInWindow = true;
@@ -284,7 +282,7 @@ public class MazeState extends GameState {
 		}
 		
 		// load required spell points for this spell
-		byte requiredSpellPoints = getMem(0xA3D3+spellNumber);
+		int requiredSpellPoints = rom().spellPointsCost(spellNumber);
 		if (requiredSpellPoints > selectedCharacter.getSpellPoints()) {
 			m_charOutputRow++;
 			m_charOutputCol = 22;
@@ -952,25 +950,12 @@ public class MazeState extends GameState {
 		
 		m_charOutputCol = 24;
 		
-		if (monsterIndex >= 27) {
-			offset = monsterIndex - 27;
-			int nameOffset = getMemU(0xA463+offset);
-			displayStringAt(0xA90B+nameOffset);
-			
-			// And also at bottom of 3D view
-			m_charOutputCol = 5;
-			m_charOutputRow = 18;
-			displayStringAt(0xA90B+nameOffset);
-		}
-		else {
-			int nameOffset = getMemU(0xA448+monsterIndex);
-			displayStringAt(0xA80D+nameOffset);
-			
-			// And also at bottom of 3D view
-			m_charOutputCol = 5;
-			m_charOutputRow = 18;
-			displayStringAt(0xA80D+nameOffset);
-		}
+		int nameAddr = rom().monsterNameAddress(monsterIndex);
+		displayStringAt(nameAddr);
+		// And also at bottom of 3D view
+		m_charOutputCol = 5;
+		m_charOutputRow = 18;
+		displayStringAt(nameAddr);
 		
 		// Compute and display number of fighting monsters
 		m_charOutputRow = 6;
@@ -1040,7 +1025,7 @@ public class MazeState extends GameState {
 		int[] monstersHP = new int[count];
 		// Monster HP table holds unsigned bytes; the Balrog entry is $FF and would
 		// flip to -1 without the mask, making him spawn already dead.
-		Arrays.fill(monstersHP, getMemU(0xA498+monsterID));
+		Arrays.fill(monstersHP, rom().monsterHP(monsterID));
 
 		// First round: doMonsterEngage decides who starts. Subsequent rounds
 		// always give monsters a turn (matches ASM flow at j9668 and j992F).
@@ -1092,14 +1077,14 @@ public class MazeState extends GameState {
 			}
 
 			int armorRating = Math.max(0, target.getArmorRating() - m_fightMagicARReduction);
-			int dodgeScore = getMemU(0x5300 + armorRating);
-			int attackScore = RANDOM.nextInt(16) + 5 + getMemU(0xA470 + monsterID);
+			int dodgeScore = rom().dodgeScore(armorRating);
+			int attackBonus = rom().monsterAttackBonus(monsterID);
+			int attackScore = RANDOM.nextInt(16) + 5 + attackBonus;
 
 			int damage = 0;
 			if (attackScore >= dodgeScore) {
 				// Base 1..8 plus N further 1..8 rolls, where N = monster attack bonus.
 				damage = RANDOM.nextInt(8) + 1;
-				int attackBonus = getMemU(0xA470 + monsterID);
 				for (int j = 0; j < attackBonus; j++) {
 					damage += RANDOM.nextInt(8) + 1;
 				}
@@ -1195,8 +1180,8 @@ public class MazeState extends GameState {
 			if (spellNumber > 18) spellNumber = 0;
 
 			// A3C0[n] == 0 marks combat spells. Non-combat or underfunded → fall back to weapon.
-			if (getMem(0xA3C0 + spellNumber) == 0) {
-				int requiredSpellPoints = getMemU(0xA3D3 + spellNumber);
+			if (rom().isCombatSpell(spellNumber)) {
+				int requiredSpellPoints = rom().spellPointsCost(spellNumber);
 				if (requiredSpellPoints > character.getSpellPoints()) {
 					spellNumber = 0;
 				} else {
@@ -1270,8 +1255,7 @@ public class MazeState extends GameState {
 			hitScore += character.getMazeXp() / 2048;                   // warrior only
 		}
 
-		int monsterAR = getMemU(0xA4C0 + monsterID);
-		int dodgeScore = getMemU(0x5300 + monsterAR);
+		int dodgeScore = rom().dodgeScore(rom().monsterAR(monsterID));
 
 		if (hitScore <= dodgeScore) {
 			// "MISSED"
@@ -1281,7 +1265,7 @@ public class MazeState extends GameState {
 
 		// Weapon damage mask at A407: None=$03, Sword=$07, MagicSword=$0F, RuneMace=$1F, Wrathblade=$3F
 		int weapon = character.getItemCode(0);
-		int damage = 1 + (RANDOM.nextInt(256) & getMemU(0xA407 + weapon));
+		int damage = 1 + (RANDOM.nextInt(256) & rom().weaponDamageMask(weapon));
 		damage += Math.max(0, character.getStrength() - 15);
 		if (character.getClassType() == 0x01) {
 			damage += character.getMazeXp() / 2048;
@@ -1358,7 +1342,7 @@ public class MazeState extends GameState {
 	 * @return 
 	 */
 	private int castAttackSpell(int spellNumber, int monsterID, int[] monstersHP, int deadMonsters) {
-		int mask = getMemU(0xA3F5+spellNumber);
+		int mask = rom().spellDamageMask(spellNumber);
 		for (int i=0;i<monstersHP.length;i++) {
 			// Skip already-dead monsters (ASM b97D5). Fireball must keep
 			// searching until it finds a live target before stopping.
@@ -1409,7 +1393,7 @@ public class MazeState extends GameState {
 		triggers[m_lastTriggerIndex << 1] = (byte) 0xff;
 		
 		// ASM b9B09: LDA/ASL on an unsigned byte — result is (HP*2) mod 256.
-		int goldGained = (getMemU(0xA498+monsterID) << 1) & 0xFF;
+		int goldGained = (rom().monsterHP(monsterID) << 1) & 0xFF;
 		outputWord(goldGained);
 		
 		// Display bytes 0E,21,19,0E,1B,12,0E,17,0C,0E,2A,24 that matches string "EXPERIENCE: " at in message window	
@@ -1423,7 +1407,7 @@ public class MazeState extends GameState {
 		}
 		else {
 			// Compute experience gain for this monster (ASM b9B3F).
-			xpGained = getMemU(0xA470+monsterID) << 4;
+			xpGained = rom().monsterAttackBonus(monsterID) << 4;
 			xpGained *= (count+1);
 
 			if (getGame().getCharacter(1).isValid()) {
@@ -1511,7 +1495,7 @@ public class MazeState extends GameState {
 		}
 		
 		// if monster attack bonus > sum dext, monster engage
-		int monsterAttackBonus = getMemU(0xA470+monsterID);
+		int monsterAttackBonus = rom().monsterAttackBonus(monsterID);
 		if (monsterAttackBonus > dexterity) {
 			return true;
 		}
@@ -1823,9 +1807,7 @@ public class MazeState extends GameState {
 			nextRowInMessageWindow();
 			byte itemCode = character.getItemCode(i);
 			if (itemCode > 0) {
-				// A42C holds unsigned offsets; entries for magic-item slot go up to $AF.
-				int nameOffset = getMemU(0xA42C+itemCode+i*4);
-				displayStringAt(0xBF00+nameOffset);
+				displayStringAt(rom().itemNameAddress(i, itemCode));
 			}
 		}
 		nextRowInMessageWindow();
@@ -1889,9 +1871,9 @@ public class MazeState extends GameState {
 			// Compute and display character armor (the lower, the better)
 			// Once computed, value is store at offset $20 of character data
 			byte armorId = character.getItemCode(1);
-			int armorRating = getMemU(0xA3F0+armorId);
+			int armorRating = rom().armorRating(armorId);
 			byte shieldId = character.getItemCode(2);
-			armorRating -= getMemU(0xA3EB+shieldId);
+			armorRating -= rom().shieldReduction(shieldId);
 			if (character.getDexterity() > 15) {
 				armorRating -= character.getDexterity()-15;
 			}
@@ -1954,7 +1936,7 @@ public class MazeState extends GameState {
 				xp += character.getXp() >> 10;  // On utilise l'XP et pas l'XP temp ???? (surement un bug dans l'original)
 			}
 		}
-		int threshold = getMemU(0xA3E6+m_level);
+		int threshold = rom().wanderingThreshold(m_level);
 		m_wanderingMonsters = xp <= threshold;
 		
 	}
@@ -2356,8 +2338,7 @@ public class MazeState extends GameState {
 	 * @return the wall type in this order : north, south, east, west
 	 */
 	private WallType[] getWalls(int level, int x, int y) {
-		int address = 0xAA00 + (level * 2 << 8) + y * 20 + x;
-		byte squareDefinition = getMem(address);
+		byte squareDefinition = rom().wallsByte(level, x, y);
 		WallType northWall = WallType.values()[squareDefinition & 0x03];
 		WallType southWall = WallType.values()[(squareDefinition >> 2) & 0x03];
 		WallType eastWall = WallType.values()[(squareDefinition >> 4) & 0x03];

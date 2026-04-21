@@ -53,6 +53,11 @@ public abstract class GameState {
 	public int getMemU(int address) {
 		return getGame().getMem(address) & 0xFF;
 	}
+
+	/** Shortcut to the ROM façade for domain-level queries. */
+	public org.pixs.mazemaster.Rom rom() {
+		return getGame().getRom();
+	}
 	
 	// =============================== Display control methods =========================
 	

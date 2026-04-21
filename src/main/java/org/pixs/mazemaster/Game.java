@@ -18,6 +18,7 @@ public class Game implements IKeyListener {
 	private GameState m_currentState = null;
 
 	private byte[] m_memory;
+	private Rom m_rom;
 	private byte[] m_charset;
 
 	private Character[] m_characters;
@@ -65,9 +66,7 @@ public class Game implements IKeyListener {
 		
 		// Create the raw image of C64 memory with the original game loaded
 		m_memory = getClass().getClassLoader().getResourceAsStream("org/pixs/mazemaster/maze_master.bin").readAllBytes();
-		if (m_memory.length != 65536) {
-			throw new IllegalArgumentException("Le fichier doit contenir exactement 64K octets.");
-		}
+		m_rom = new Rom(m_memory);
 		
 		m_characters = new Character[] {
 			new Character(),	
@@ -106,6 +105,10 @@ public class Game implements IKeyListener {
 
 	public byte getMem(int adress) {
 		return m_memory[adress];
+	}
+
+	public Rom getRom() {
+		return m_rom;
 	}
 
 	public Character getCharacter(int i) {
