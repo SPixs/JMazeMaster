@@ -58,6 +58,11 @@ public abstract class GameState {
 	public org.pixs.mazemaster.Rom rom() {
 		return getGame().getRom();
 	}
+
+	/** Shortcut to the party of characters. */
+	public org.pixs.mazemaster.Party party() {
+		return getGame().getParty();
+	}
 	
 	// =============================== Display control methods =========================
 	

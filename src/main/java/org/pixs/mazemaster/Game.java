@@ -22,7 +22,7 @@ public class Game implements IKeyListener {
 	private MazeMap m_mazeMap;
 	private byte[] m_charset;
 
-	private Character[] m_characters;
+	private Party m_party;
 
 	private byte[][] m_triggers = new byte[5][];
 
@@ -70,13 +70,8 @@ public class Game implements IKeyListener {
 		m_rom = new Rom(m_memory);
 		m_mazeMap = new MazeMap(m_rom);
 		
-		m_characters = new Character[] {
-			new Character(),	
-			new Character(),	
-			new Character()	
-		};
-		
-		
+		m_party = new Party();
+
 		setState(new InitState(this));
 	}
 
@@ -117,8 +112,13 @@ public class Game implements IKeyListener {
 		return m_mazeMap;
 	}
 
+	public Party getParty() {
+		return m_party;
+	}
+
+	/** Convenience shortcut; equivalent to {@code getParty().at(i)}. */
 	public Character getCharacter(int i) {
-		return m_characters[i];
+		return m_party.at(i);
 	}
 	
 	private ArrayBlockingQueue<Byte> pressedKeyWithPETSCIIBuffer = new ArrayBlockingQueue<Byte>(10);
@@ -143,9 +143,6 @@ public class Game implements IKeyListener {
 	}
 
 	public void deleteCharacter(int index) {
-		for (int i=index;i<2;i++) {
-			m_characters[i] = m_characters[i+1];
-		}
-		m_characters[2] = new Character();
+		m_party.deleteAt(index);
 	}
 }

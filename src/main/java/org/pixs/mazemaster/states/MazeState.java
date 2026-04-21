@@ -10,6 +10,7 @@ import org.pixs.mazemaster.Character;
 import org.pixs.mazemaster.Direction;
 import org.pixs.mazemaster.Game;
 import org.pixs.mazemaster.MazeMap;
+import org.pixs.mazemaster.Party;
 import org.pixs.mazemaster.WallType;
 
 public class MazeState extends GameState {
@@ -56,24 +57,21 @@ public class MazeState extends GameState {
 		m_lightCounter = 0;
 		
 		// Init characters conditions with constitution
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.getRawBytes()[0] != 0x24) {
-				character.setCondition(character.getConstitution());
-				character.setMazeXp(character.getXp());
-				character.setSpellPoints(0);
-				
-				// Loof for a Staff of light item in inventory
-				if (character.getItemCode(3) == 0x01) {
-					m_lightCounter = 0xFA;
-				}
-				
-				// Initialize spell points of wizards.
-				// It equals to 1 + lvl + (intellect - $0F, if intellect > $0F) 
-				if (character.getClassType() == 0x02) {
-					int points = character.getXp() / 1024 + 1 + Math.max(0, character.getIntellect() - 15);
-					character.setSpellPoints(points);
-				}
+		for (Character character : party()) {
+			character.setCondition(character.getConstitution());
+			character.setMazeXp(character.getXp());
+			character.setSpellPoints(0);
+
+			// Loof for a Staff of light item in inventory
+			if (character.getItemCode(3) == 0x01) {
+				m_lightCounter = 0xFA;
+			}
+
+			// Initialize spell points of wizards.
+			// It equals to 1 + lvl + (intellect - $0F, if intellect > $0F)
+			if (character.getClassType() == 0x02) {
+				int points = character.getXp() / 1024 + 1 + Math.max(0, character.getIntellect() - 15);
+				character.setSpellPoints(points);
 			}
 		}
 		
@@ -166,17 +164,14 @@ public class MazeState extends GameState {
 						}
 						
 						// Heal characters holding an 'Amulet of Healing'
-						boolean healPerformed = false;
-						for (int i=0;i<3;i++) {
-							Character character = getGame().getCharacter(i);
-							if (character.isValid() && character.getItemCode(3) == 0x03) {
-								if (character.getCondition() < character.getConstitution()) {
-									character.setCondition(Math.min(character.getConstitution(), character.getCondition()+1));
-									healPerformed = true;
-								}
+						boolean[] healPerformed = { false };
+						party().forEachAlive(c -> {
+							if (c.getItemCode(3) == 0x03 && c.getCondition() < c.getConstitution()) {
+								c.setCondition(Math.min(c.getConstitution(), c.getCondition() + 1));
+								healPerformed[0] = true;
 							}
-						}
-						if (healPerformed) {
+						});
+						if (healPerformed[0]) {
 							displayStatsLines();
 						}
 					}
@@ -199,32 +194,29 @@ public class MazeState extends GameState {
 	 * Part has come back to base camp
 	 */
 	private void returnToBaseCamp() {
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.isValid()) {
-				// j897F: levelsGained = (mazeXp >> 10) - (xp >> 10), then persist mazeXp → xp
-				int levelsGained = (character.getMazeXp() >> 10) - (character.getXp() >> 10);
-				character.setXP(character.getMazeXp());
-				// Apply the level-up bonuses once per level gained (ASM DEX/BNE loop at b89B9)
-				for (int l = 0; l < levelsGained; l++) {
-					// Constitution += 1..4, clamped to 255
-					character.setConstitution(Math.min(255, character.getConstitution() + RANDOM.nextInt(4) + 1));
-					// One random attribute among STR/INT/DEX gets +1..2, capped at 18
-					int attributeBonus = RANDOM.nextInt(2) + 1;
-					switch (RANDOM.nextInt(3)) {
-						case 0:
-							character.setStrength(Math.min(18, character.getStrength() + attributeBonus));
-							break;
-						case 1:
-							character.setIntellect(Math.min(18, character.getIntellect() + attributeBonus));
-							break;
-						case 2:
-							character.setDexterity(Math.min(18, character.getDexterity() + attributeBonus));
-							break;
-					}
+		party().forEachAlive(character -> {
+			// j897F: levelsGained = (mazeXp >> 10) - (xp >> 10), then persist mazeXp → xp
+			int levelsGained = (character.getMazeXp() >> 10) - (character.getXp() >> 10);
+			character.setXP(character.getMazeXp());
+			// Apply the level-up bonuses once per level gained (ASM DEX/BNE loop at b89B9)
+			for (int l = 0; l < levelsGained; l++) {
+				// Constitution += 1..4, clamped to 255
+				character.setConstitution(Math.min(255, character.getConstitution() + RANDOM.nextInt(4) + 1));
+				// One random attribute among STR/INT/DEX gets +1..2, capped at 18
+				int attributeBonus = RANDOM.nextInt(2) + 1;
+				switch (RANDOM.nextInt(3)) {
+					case 0:
+						character.setStrength(Math.min(18, character.getStrength() + attributeBonus));
+						break;
+					case 1:
+						character.setIntellect(Math.min(18, character.getIntellect() + attributeBonus));
+						break;
+					case 2:
+						character.setDexterity(Math.min(18, character.getDexterity() + attributeBonus));
+						break;
 				}
 			}
-		}
+		});
 		setState(new MainMenuState(getGame()));
 	}
 
@@ -413,12 +405,8 @@ public class MazeState extends GameState {
 	}
 	
 	private void healParty(int healValue) {
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.isValid()) {
-				character.setCondition(Math.min(character.getCondition()+healValue, character.getConstitution()));
-			}
-		}
+		party().forEachAlive(c ->
+			c.setCondition(Math.min(c.getCondition() + healValue, c.getConstitution())));
 		displayStatsLines();
 	}
 
@@ -608,12 +596,7 @@ public class MazeState extends GameState {
 	 * RENEWAL This spell will completely restore all surviving members of your party to their full constitution.
 	 */
 	private void castRenewal() {
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.isValid()) {
-				character.setCondition(character.getConstitution());
-			}
-		}
+		party().forEachAlive(c -> c.setCondition(c.getConstitution()));
 		displayStatsLines();
 	}
 
@@ -1122,7 +1105,7 @@ public class MazeState extends GameState {
 			delayInMillis(50);
 
 			// Party dead: exit the maze entirely.
-			if (!getGame().getCharacter(0).isValid()) {
+			if (party().allDead()) {
 				m_exitMaze = true;
 				return false;
 			}
@@ -1143,11 +1126,9 @@ public class MazeState extends GameState {
 	 * their choice on the Character. Mirrors ASM b9668..j96FF.
 	 */
 	private void askPartyActions() {
-		for (int i = 0; i < 3; i++) {
+		for (Character character : party()) {
 			resetMessageWindowAndCursor();
 			delayInMillis(50);
-			Character character = getGame().getCharacter(i);
-			if (!character.isValid()) break;
 
 			// Warriors get (mazeXp / 8192) extra strikes; wizards get 0.
 			character.setNumberOfStrikes(character.getClassType() == 1
@@ -1199,8 +1180,8 @@ public class MazeState extends GameState {
 	 */
 	private boolean partyAttackPhase(int monsterID, int count, int[] monstersHP) {
 		int fightingCharacterIndex = 0;
-		while (fightingCharacterIndex < 3
-				&& getGame().getCharacter(fightingCharacterIndex).isValid()
+		while (fightingCharacterIndex < Party.MAX_SIZE
+				&& party().at(fightingCharacterIndex).isValid()
 				&& m_fightDeadMonsters < count) {
 			resetMessageWindowAndCursor();
 			delayInMillis(50);
@@ -1212,7 +1193,7 @@ public class MazeState extends GameState {
 				return false;
 			}
 
-			Character character = getGame().getCharacter(fightingCharacterIndex);
+			Character character = party().at(fightingCharacterIndex);
 			display(character.getNameAsBytes());
 			nextRowInMessageWindow();
 			int spellNumber = character.getSpellNumber();
@@ -1407,12 +1388,9 @@ public class MazeState extends GameState {
 			xpGained = rom().monsterAttackBonus(monsterID) << 4;
 			xpGained *= (count+1);
 
-			if (getGame().getCharacter(1).isValid()) {
-				xpGained >>= 1;
-			}
-			if (getGame().getCharacter(2).isValid()) {
-				xpGained >>= 1;
-			}
+			// ASM b9B5F halves the XP for each extra character beyond slot 0.
+			if (party().at(1).isValid()) xpGained >>= 1;
+			if (party().at(2).isValid()) xpGained >>= 1;
 		}
 		// j9B7B: the ASM displays the XP word for both branches.
 		outputWord(xpGained);
@@ -1438,13 +1416,13 @@ public class MazeState extends GameState {
 			}
 		}
 		
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.isValid()) {
-				character.setGold(checkOverflow16bits(character.getGold()+goldGained));
-				character.setMazeXp(checkOverflow16bits(character.getMazeXp()+xpGained));
-			}
-		}
+		// Share gold and experience across all living characters.
+		final int goldFinal = goldGained;
+		final int xpFinal = xpGained;
+		party().forEachAlive(c -> {
+			c.setGold(checkOverflow16bits(c.getGold() + goldFinal));
+			c.setMazeXp(checkOverflow16bits(c.getMazeXp() + xpFinal));
+		});
 	}
 
 	/**
@@ -1482,14 +1460,8 @@ public class MazeState extends GameState {
 	}
 
 	public boolean doMonsterEngage(int monsterID, int runningAwayMonsterBonus) {
-		// Sum dexterity of every present party member (ASM j9AAB reads
-		// $0812, $0912, $0A12 — one per slot; the Java was reading slot 1 thrice).
-		int dexterity = 0;
-		for (int i=0;i<3;i++) {
-			if (getGame().getCharacter(i).isValid()) {
-				dexterity += getGame().getCharacter(i).getDexterity();
-			}
-		}
+		// ASM j9AAB reads $0812/$0912/$0A12 — one dexterity per filled slot.
+		int dexterity = party().sumOverAlive(Character::getDexterity);
 		
 		// if monster attack bonus > sum dext, monster engage
 		int monsterAttackBonus = rom().monsterAttackBonus(monsterID);
@@ -1926,16 +1898,10 @@ public class MazeState extends GameState {
 	 * floor 4 : $1A (sum xp < 26624)
 	 */
 	private void initWanderingMonsters() {
-		int xp = 0;
-		for (int i=0;i<3;i++) {
-			Character character = getGame().getCharacter(i);
-			if (character.isValid()) {
-				xp += character.getXp() >> 10;  // On utilise l'XP et pas l'XP temp ???? (surement un bug dans l'original)
-			}
-		}
-		int threshold = rom().wanderingThreshold(m_level);
-		m_wanderingMonsters = xp <= threshold;
-		
+		// On utilise l'XP et pas l'XP temp : c'est bien ce que l'ASM s9BEA fait
+		// (il lit la MSB du champ XP permanent à $0818/$0918/$0A18).
+		int xp = party().sumOverAlive(c -> c.getXp() >> 10);
+		m_wanderingMonsters = xp <= rom().wanderingThreshold(m_level);
 	}
 
 	/**
