@@ -5,7 +5,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import org.pixs.C64KeyMapping;
 import org.pixs.IKeyListener;
-import org.pixs.hardware.CIA1;
+import org.pixs.hardware.InputState;
 import org.pixs.hardware.VicIIDisplay;
 import org.pixs.mazemaster.states.GameState;
 import org.pixs.mazemaster.states.InitState;
@@ -13,20 +13,20 @@ import org.pixs.mazemaster.states.InitState;
 public class Game implements IKeyListener {
 
 	private VicIIDisplay m_vicII;
-	private CIA1 m_cia1;
+	private InputState m_inputState;
 
 	private GameState m_currentState = null;
-	
+
 	private byte[] m_memory;
 	private byte[] m_charset;
-	
+
 	private Character[] m_characters;
-	
+
 	private byte[][] m_triggers = new byte[5][];
-	
-	public Game(VicIIDisplay vicII, CIA1 cia1) {
+
+	public Game(VicIIDisplay vicII, InputState inputState) {
 		m_vicII = vicII;
-		m_cia1 = cia1;
+		m_inputState = inputState;
 	}
 
 	// ================================ Access methods  =========================================
@@ -35,8 +35,8 @@ public class Game implements IKeyListener {
 		return m_vicII;
 	}
 
-	public CIA1 getCia1() {
-		return m_cia1;
+	public InputState getInputState() {
+		return m_inputState;
 	}
 
 	public void setState(GameState state) {

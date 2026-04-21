@@ -126,7 +126,7 @@ public class MazeState extends GameState {
 				}
 			}
 			
-			Set<JoystickButton> pressedButton = getGame().getCia1().getPressedButton();
+			Set<JoystickButton> pressedButton = getGame().getInputState().getPressedButton();
 			if (pressedButton.contains(JoystickButton.UP)) {
 				goForward();
 			}
@@ -542,7 +542,7 @@ public class MazeState extends GameState {
 	}
 	
 	public void waitForJoystickRelease() {
-		while (!getGame().getCia1().getPressedButton().isEmpty()) {
+		while (!getGame().getInputState().getPressedButton().isEmpty()) {
 			try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
 		}
 		delay();
@@ -574,7 +574,7 @@ public class MazeState extends GameState {
 			
 			m_charOutputCol = savedCol;
 			
-			Set<JoystickButton> pressedButton = getGame().getCia1().getPressedButton();
+			Set<JoystickButton> pressedButton = getGame().getInputState().getPressedButton();
 			int pressedKey = readKeyboardAsPETSCIINoBlocking();
 			if (pressedButton.contains(JoystickButton.LEFT) || pressedKey == 0x9D) {
 				value = Math.max(0, value-1);

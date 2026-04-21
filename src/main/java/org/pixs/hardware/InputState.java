@@ -9,12 +9,19 @@ import org.pixs.IKeyListener;
 import org.pixs.IKeyboard;
 import org.pixs.JoystickButton;
 
-public class CIA1 implements IJoystickButtonListener, IKeyListener {
+/**
+ * Aggregated input state: which joystick buttons and PETSCII keys are
+ * currently held. Registers itself as a listener on a joystick and a
+ * keyboard; the game loop polls the two sets on each tick. Historically
+ * named "CIA1" because it filled the same role as the C64's CIA1 chip,
+ * but there's no hardware emulation here.
+ */
+public class InputState implements IJoystickButtonListener, IKeyListener {
 
 	private final Set<JoystickButton> m_pressedButton = new CopyOnWriteArraySet<>();
 	private final Set<Byte> m_pressedKey = new CopyOnWriteArraySet<>();
 
-	public CIA1(IJoystick joystick, IKeyboard keyboard) {
+	public InputState(IJoystick joystick, IKeyboard keyboard) {
 		joystick.addButtonListener(this);
 		keyboard.addKeyListener(this);
 	}

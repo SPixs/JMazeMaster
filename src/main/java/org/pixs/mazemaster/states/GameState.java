@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.pixs.C64KeyMapping;
-import org.pixs.hardware.CIA1;
 import org.pixs.hardware.VicIIDisplay;
 import org.pixs.mazemaster.Game;
 
