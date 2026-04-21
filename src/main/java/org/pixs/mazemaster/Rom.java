@@ -165,16 +165,22 @@ public final class Rom {
     public int monsterSpriteColor1(int id) { return getByteU(0xBE61 + id * 4); }
 
     /**
-     * Normalised MSB address (&lt;&lt; 8) of the upper half of the sprite data
-     * for monster {@code id}. Applies the ROM's address-fixup quirk when the
-     * raw table entry falls below $B0 (ASM s897A).
+     * Full address of the upper half of the sprite data for monster {@code id}.
+     *
+     * <p>ASM b94F0: the raw byte at {@code $BE62 + id*4} is compared to {@code $B0}
+     * directly (as a byte, <b>not</b> shifted). When it's &ge; $B0 the address
+     * is simply {@code raw << 8} (LSB = 0). When it's &lt; $B0 the ASM adds $B0
+     * to the byte (with 8-bit wrap) and sets LSB = $80, giving
+     * {@code ((raw + $B0) & $FF) << 8 | $80}. Monsters 18, 20, 23, 26, 29, 32,
+     * 37 and 39 (Balrog) are affected — without the fixup their top-half
+     * sprites would be fetched from unrelated RAM and render empty.</p>
      */
     public int monsterSpriteTopAddress(int id) {
-        int addr = getByteU(0xBE62 + id * 4) << 8;
-        if (addr < 0x0B0) {
-            addr = ((addr + 0x0B0) & 0x0FF00) | 0x080;
+        int rawMsb = getByteU(0xBE62 + id * 4);
+        if (rawMsb < 0xB0) {
+            return (((rawMsb + 0xB0) & 0xFF) << 8) | 0x80;
         }
-        return addr;
+        return rawMsb << 8;
     }
 
     /** MSB address of the lower half of the sprite data. */

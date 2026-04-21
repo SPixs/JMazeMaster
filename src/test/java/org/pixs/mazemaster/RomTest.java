@@ -250,27 +250,41 @@ class RomTest {
     }
 
     @Test
-    void monsterSpriteTopAddressAppliesRomQuirkOnlyWhenRawByteIsZero() {
-        // The Java port (and presumably the ASM) compares the already-shifted
-        // top address to the literal $B0, not to $B000. That condition only
-        // triggers when the raw descriptor byte is 0 (so shifted == 0).
-        // Preserved faithfully — tests pin the current behaviour, not the
-        // likely-intended "< $B000".
-        byte[] mem = freshMemory();
-        mem[0xBE62 + 5 * 4] = 0x00;
-        Rom rom = new Rom(mem);
-
-        // Fixup: ((0 + $B0) & $FF00) | $80 = 0 | 0x80 = 0x80
-        assertEquals(0x80, rom.monsterSpriteTopAddress(5));
-    }
-
-    @Test
-    void monsterSpriteTopAddressNormalValue() {
+    void monsterSpriteTopAddressNoFixupWhenRawByteAboveThreshold() {
         byte[] mem = freshMemory();
         mem[0xBE62 + 2 * 4] = (byte) 0xB4;
         Rom rom = new Rom(mem);
 
         assertEquals(0xB400, rom.monsterSpriteTopAddress(2));
+    }
+
+    /**
+     * Balrog (monster 39) has raw MSB = $09; the ASM fixup (ADC #$B0 on the
+     * byte, LSB = $80) remaps that to $B980. Without the fixup the renderer
+     * reads from $0900 in RAM and draws an empty head — visible rendering bug.
+     */
+    @Test
+    void monsterSpriteTopAddressAppliesFixupBelowB0_balrogCase() {
+        byte[] mem = freshMemory();
+        mem[0xBE62 + 39 * 4] = 0x09; // Balrog's actual ROM byte
+        Rom rom = new Rom(mem);
+
+        assertEquals(0xB980, rom.monsterSpriteTopAddress(39));
+    }
+
+    @Test
+    void monsterSpriteTopAddressFixupForMultipleAffectedMonsters() {
+        byte[] mem = freshMemory();
+        mem[0xBE62 + 18 * 4] = 0x09; // → $B980
+        mem[0xBE62 + 20 * 4] = 0x06; // → $B680
+        mem[0xBE62 + 26 * 4] = 0x06; // → $B680
+        mem[0xBE62 + 37 * 4] = 0x06; // → $B680
+        Rom rom = new Rom(mem);
+
+        assertEquals(0xB980, rom.monsterSpriteTopAddress(18));
+        assertEquals(0xB680, rom.monsterSpriteTopAddress(20));
+        assertEquals(0xB680, rom.monsterSpriteTopAddress(26));
+        assertEquals(0xB680, rom.monsterSpriteTopAddress(37));
     }
 
     @Test
