@@ -467,37 +467,32 @@ public class MazeState extends GameState {
 		// Ouput screen codes 15,0E,1F,0E,15,1C,24,0D,18,20,17,2A,24 at (22,24)
 		// that matches chars "LEVELS DOWN: "
 		displayString(0xBCF9+0x0B, 0x18-0x0B);
-		
-		// ask for a numeric value between (0..40) <-> (-20..+20) and load in ACC
-		int value = selectValueInRange20();
 
-		int newLevel = 0;
+		// ASM j8C73: re-query the value until it yields a valid target level.
+		int newLevel = m_level;
 		while (true) {
-			// Go downstairs ?
-			if (value > 20) {
-				newLevel = m_level + value - 20;
-				if (newLevel <= 4) {
-					// are we trying to teleport to last floor (4) ?
-					if (newLevel == 4) { 
-						// if so, 'bounce' party to first level (floor 0)
-						newLevel = 0; 
-					} 
-					break;
-				}
-				waitForJoystickRelease();
-			}
-			if (value < 20) {
-				// Go upstairs ?
-				newLevel = m_level + value - 20;
-				if (newLevel >= 0) {
-					break;
-				}
-				waitForJoystickRelease();
-			}
-			else {
-				// same level...
+			int value = selectValueInRange20();
+			if (value == 20) {
+				// User selected 0 — stay on current level.
 				break;
 			}
+			int candidate = m_level + value - 20;
+			if (value > 20) {
+				// Going down.
+				if (candidate < 5) {
+					// Bounce off the bottom: level 4 wraps to level 0 (ASM b8C8C).
+					newLevel = (candidate == 4) ? 0 : candidate;
+					break;
+				}
+			}
+			else {
+				// Going up.
+				if (candidate >= 0) {
+					newLevel = candidate;
+					break;
+				}
+			}
+			waitForJoystickRelease();
 		}
 		m_level = newLevel;
 		
@@ -1660,7 +1655,8 @@ public class MazeState extends GameState {
 		// The Background Pixel Color is defined by Bits#0 - Bit#3 of the corresponding Byte in Screen RAM.  
 		// The Foreground Pixel Color is defined by Bits#4 - Bits#7 - again from the corresponding Byte in Screen RAM. 
 		// Remplissage de la mémoire $0400 -> $0800 avec $B1 (gris foncé sur fond blanc)
-		for (int i=0;i<8192;i++) {
+		// ASM b940C fills 1024 bytes; setCharAt silently guards past m_screenRam.
+		for (int i=0;i<1024;i++) {
 			vicII.setCharAt(i, (byte)(0xB1));
 		}
 		
@@ -1881,7 +1877,8 @@ public class MazeState extends GameState {
 			nextRowInMessageWindow();
 			byte itemCode = character.getItemCode(i);
 			if (itemCode > 0) {
-				int nameOffset = getMem(0xA42C+itemCode+i*4);
+				// A42C holds unsigned offsets; entries for magic-item slot go up to $AF.
+				int nameOffset = getMem(0xA42C+itemCode+i*4) & 0xFF;
 				displayStringAt(0xBF00+nameOffset);
 			}
 		}
