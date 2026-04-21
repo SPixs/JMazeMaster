@@ -610,9 +610,11 @@ public class MazeState extends GameState {
 	}
 
 	public int convertToWord(byte[] chars) {
+		// ASM s9F9D: reject non-digit input (screen codes 0..9 only) and return 0.
 		int result = 0;
 		for (byte v : chars) {
 			if (v == 0x24) return result;
+			if (v < 0 || v > 9) return 0;
 			result = result * 10 + v;
 		}
 		return result;
@@ -1893,15 +1895,15 @@ public class MazeState extends GameState {
 	}
 	
 	private void resetMessageWindowAndCursor() {
-		m_charOutputRow = 5;
-
-		while (m_charOutputRow++ <= 19) {
+		// ASM sA347: clear rows 5..19 inclusive, columns 21..38 inclusive.
+		// The previous post-increment loop started writing at row 6 (off by one).
+		for (m_charOutputRow = 5; m_charOutputRow <= 19; m_charOutputRow++) {
 			m_charOutputCol = 21;
 			while (m_charOutputCol <= 38) {
 				outputChar((byte) 0x24);
 			}
 		}
-		
+
 		m_charOutputRow = 6;
 		m_charOutputCol = 22;
 	}
