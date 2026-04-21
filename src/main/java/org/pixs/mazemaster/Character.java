@@ -171,7 +171,7 @@ public class Character {
 	 */
 	public byte[] getRawBytes() {
 		byte[] raw = new byte[0x25];
-		System.arraycopy(getNameAsBytes(), 0, raw, 0, 0x0f);
+		System.arraycopy(getNameAsBytes(), 0, raw, 0, 0x10);
 		raw[0x10] = (byte)m_strength;
 		raw[0x11] = (byte)m_intellect;
 		raw[0x12] = (byte)m_dexterity;

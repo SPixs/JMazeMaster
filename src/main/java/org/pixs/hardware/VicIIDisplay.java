@@ -282,7 +282,7 @@ public class VicIIDisplay {
 		Graphics2D graphics = (Graphics2D) charImage.getGraphics();
 //		graphics.setClip(0, 0, 8, 8);
 //		graphics.drawImage(getImage(), -32-(x*8), -35-(y*8), 8, 8, null);
-		graphics.drawImage(getImage(), 0, 0, 8, 8, 32+x*8, 35+y*8, 32+x*8+x, 35+y*8+8, null);
+		graphics.drawImage(getImage(), 0, 0, 8, 8, 32+x*8, 35+y*8, 32+x*8+8, 35+y*8+8, null);
 		return charImage;
 	}
 

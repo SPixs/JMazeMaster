@@ -166,6 +166,14 @@ public class MainMenuState extends GameState {
 			// Remove item price from the character gold
 			selectedCharacter.setGold(selectedCharacter.getGold() - itemPrice);
 			selectedCharacter.setItem(itemType, (byte)(itemNumber+1));
+
+			// j85E5 in source.asm jumps to j85DE: display "HIT ANY KEY TO GO ON" and wait
+			m_charOutputRow+=2;
+			m_charOutputCol=0x0A;
+			for (int i=0x0A;i<0x1E;i++) {
+				outputChar(getMem(0xA753+i));
+			}
+			readKeyboardAsPETSCII();
 		}
 	}
 
@@ -488,18 +496,18 @@ public class MainMenuState extends GameState {
 				}
 			}
 			
-			// Perform some validation
-			// Strength, Dexterity and Intellect >= 0 and <= 18
-			boolean valid = ((rawBytes[0x10] & 0x0FF) >= 0) && ((rawBytes[0x10] & 0x0FF) <= 18);
-			valid &= ((rawBytes[0x11] & 0x0FF) >= 0) && ((rawBytes[0x11] & 0x0FF) <= 18);
-			valid &= ((rawBytes[0x12] & 0x0FF) >= 0) && ((rawBytes[0x12] & 0x0FF) <= 18);
+			// Perform some validation (matches b8289/b829F in source.asm)
+			// Strength, Intellect, Dexterity <= 18 ($13)
+			boolean valid = (rawBytes[0x10] & 0x0FF) <= 18;
+			valid &= (rawBytes[0x11] & 0x0FF) <= 18;
+			valid &= (rawBytes[0x12] & 0x0FF) <= 18;
 			// Class type is 1 or 2
 			valid &= ((rawBytes[0x14] & 0x0FF) > 0) && ((rawBytes[0x14] & 0x0FF) < 3);
-			// Item index for each category is >=0 and <=4
-			valid &= ((rawBytes[0x19] & 0x0FF) >= 0) && ((rawBytes[0x19] & 0x0FF) < 6);
-			valid &= ((rawBytes[0x1A] & 0x0FF) >= 0) && ((rawBytes[0x1A] & 0x0FF) < 6);
-			valid &= ((rawBytes[0x1B] & 0x0FF) >= 0) && ((rawBytes[0x1B] & 0x0FF) < 6);
-			valid &= ((rawBytes[0x1C] & 0x0FF) >= 0) && ((rawBytes[0x14] & 0x1C) < 6);
+			// Item index for each category is < 5
+			valid &= (rawBytes[0x19] & 0x0FF) < 5;
+			valid &= (rawBytes[0x1A] & 0x0FF) < 5;
+			valid &= (rawBytes[0x1B] & 0x0FF) < 5;
+			valid &= (rawBytes[0x1C] & 0x0FF) < 5;
 			
 			if (!valid) {
 				for (int i=0x10;i<rawBytes.length;i++) {
@@ -508,8 +516,6 @@ public class MainMenuState extends GameState {
 			}
 			
 			character.setRawBytes(rawBytes);
-			displayMenuFooter();
-			return;
 		}
 	}
 

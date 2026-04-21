@@ -57,10 +57,10 @@ public abstract class GameState {
 		}
 		
 		// En mode bitmap, la Screen RAM sert à définir les couleurs.
-		// The Background Pixel Color is defined by Bits#0 - Bit#3 of the corresponding Byte in Screen RAM.  
-		// The Foreground Pixel Color is defined by Bits#4 - Bits#7 - again from the corresponding Byte in Screen RAM. 
+		// The Background Pixel Color is defined by Bits#0 - Bit#3 of the corresponding Byte in Screen RAM.
+		// The Foreground Pixel Color is defined by Bits#4 - Bits#7 - again from the corresponding Byte in Screen RAM.
 		// Remplissage de la mémoire $0400 -> $0800 avec $1B (blanc sur fond gris foncé)
-		for (int i=0;i<8192;i++) {
+		for (int i=0;i<1024;i++) {
 			vicII.setCharAt(i, (byte)(0x1B));
 		}
 	}
@@ -408,7 +408,7 @@ public abstract class GameState {
 		boolean nameEntered = false;
 		while (!nameEntered) {
 			while (true) {
-				int keyPETSCII = readKeyboardAsPETSCIINoBlocking();
+				int keyPETSCII;
 				counter++;
 				if ((counter & 0xFF) == 0) {
 					counter = 0;
