@@ -180,8 +180,8 @@ public class MazeState extends GameState {
 	}
 
 	private void encounterRandomMonster() {
-		int monsterID = 6 * m_level + RANDOM.nextInt(16);
-		processMonsterEncounter(monsterID);
+		// j94C5: random monster ID in 0..15; processMonsterEncounter adds level*6 itself.
+		processMonsterEncounter(RANDOM.nextInt(16));
 	}
 
 	/**
@@ -189,27 +189,29 @@ public class MazeState extends GameState {
 	 * Part has come back to base camp
 	 */
 	private void returnToBaseCamp() {
-		// Is there at least one character alive ?
 		for (int i=0;i<3;i++) {
 			Character character = getGame().getCharacter(i);
 			if (character.isValid()) {
-				boolean levelGained = (character.getMazeXp() >> 10) > (character.getXp() >> 10);
-				if (levelGained) {
-					character.setConstitution(Math.min(255, character.getConstitution() + RANDOM.nextInt(3) + 1));
-				}
-				int attributeBonus = RANDOM.nextInt(2) + 1;
-				switch (RANDOM.nextInt(3)) {
-					case 0:
-						character.setStrength(Math.min(18, attributeBonus));
-						break;
-					case 1:
-						character.setIntellect(Math.min(18, attributeBonus));
-						break;
-					case 2:
-						character.setDexterity(Math.min(18, attributeBonus));
-						break;
-					default:
-						throw new IllegalStateException();
+				// j897F: levelsGained = (mazeXp >> 10) - (xp >> 10), then persist mazeXp → xp
+				int levelsGained = (character.getMazeXp() >> 10) - (character.getXp() >> 10);
+				character.setXP(character.getMazeXp());
+				// Apply the level-up bonuses once per level gained (ASM DEX/BNE loop at b89B9)
+				for (int l = 0; l < levelsGained; l++) {
+					// Constitution += 1..4, clamped to 255
+					character.setConstitution(Math.min(255, character.getConstitution() + RANDOM.nextInt(4) + 1));
+					// One random attribute among STR/INT/DEX gets +1..2, capped at 18
+					int attributeBonus = RANDOM.nextInt(2) + 1;
+					switch (RANDOM.nextInt(3)) {
+						case 0:
+							character.setStrength(Math.min(18, character.getStrength() + attributeBonus));
+							break;
+						case 1:
+							character.setIntellect(Math.min(18, character.getIntellect() + attributeBonus));
+							break;
+						case 2:
+							character.setDexterity(Math.min(18, character.getDexterity() + attributeBonus));
+							break;
+					}
 				}
 			}
 		}
@@ -311,7 +313,8 @@ public class MazeState extends GameState {
 	 * @param selectedCharacter 
 	 */
 	private void castHeal(Character selectedCharacter) {
-		int heal = RANDOM.nextInt(31) + 1;
+		// j8BA2: (rand & $1F) + 1 → 1..32
+		int heal = RANDOM.nextInt(32) + 1;
 		selectedCharacter.setCondition(Math.min(selectedCharacter.getCondition()+heal, selectedCharacter.getConstitution()));
 		displayStatsLines();
 	}
@@ -388,7 +391,8 @@ public class MazeState extends GameState {
 	 * This spell will heal the CND of every party member by 1-16 points.
 	 */
 	private void castRestore() {
-		healParty(RANDOM.nextInt(15)+1);
+		// j8BCD: (rand & $0F) + 1 → 1..16
+		healParty(RANDOM.nextInt(16)+1);
 	}
 
 	/**
@@ -396,7 +400,8 @@ public class MazeState extends GameState {
 	 * This spell is similar to spell 7, except that it heals 1-32 points.
 	 */
 	private void castRegenerate() {
-		healParty(RANDOM.nextInt(31)+1);
+		// j8BD5: (rand & $1F) + 1 → 1..32
+		healParty(RANDOM.nextInt(32)+1);
 	}
 	
 	private void healParty(int healValue) {
@@ -536,7 +541,7 @@ public class MazeState extends GameState {
 	
 	public void waitForJoystickRelease() {
 		while (!getGame().getCia1().getPressedButton().isEmpty()) {
-			Thread.yield();
+			try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
 		}
 		delay();
 	}
@@ -623,11 +628,8 @@ public class MazeState extends GameState {
 	}
 	
 	public void delayCycles(int cyclesCount) {
-		long startTime = System.nanoTime();
-		long duration = (long) (cyclesCount * 1014.97288d);
-		while (System.nanoTime() - startTime < duration) {
-			Thread.yield();
-		}
+		long nanos = (long) (cyclesCount * 1014.97288d);
+		java.util.concurrent.locks.LockSupport.parkNanos(nanos);
 	}
 
 	/**
@@ -893,7 +895,8 @@ public class MazeState extends GameState {
 
 		// If monster ID is 39 ($27), ensure that party position is (3,19) (BALROG location)
 		// If party is anywhere else, load monster ID 25 ($19) instead...
-		if (monsterIndex == 0x27 && m_xPos != 3 && m_yPos != 19) {
+		// ASM b94D7: must match BOTH coords; any mismatch downgrades to $19
+		if (monsterIndex == 0x27 && (m_xPos != 3 || m_yPos != 19)) {
 			monsterIndex = 0x19;
 		}
 		
@@ -1024,7 +1027,9 @@ public class MazeState extends GameState {
 		m_infightEscapeCounter = 0;
 		
 		int[] monstersHP = new int[count];
-		Arrays.fill(monstersHP, getMem(0xA498+monsterID));
+		// Monster HP table holds unsigned bytes; the Balrog entry is $FF and would
+		// flip to -1 without the mask, making him spawn already dead.
+		Arrays.fill(monstersHP, getMem(0xA498+monsterID) & 0xFF);
 		
 		boolean fightInProgress = true;
 		boolean monstersEngage = doMonsterEngage(monsterID, 0);
@@ -1276,12 +1281,14 @@ public class MazeState extends GameState {
 						// Rune-mace = 1..32
 						// Wrathblade = 1..64
 						int weapon = character.getItemCode(0);
-						// compute damage with weapon mask on random value : 
+						// compute damage with weapon mask on random value :
 						int damage = 1 + (RANDOM.nextInt(256) & getMem(0xA407+weapon));
 						// add strength bonus to damage
 						damage += Math.max(0, character.getStrength() - 15);
-						// add (tmp experience / 2048) to damage
-						damage += character.getMazeXp() / 2048;
+						// add (tmp experience / 2048) to damage — warriors only (ASM b988A)
+						if (character.getClassType() == 0x01) {
+							damage += character.getMazeXp() / 2048;
+						}
 						
 						// Output attack text according to amount of damage :
 						// damage < 5 : bytes 10,15,0A,17,0C,0E,1C,24,11,12,1C,24,0F,18,0E
@@ -1331,9 +1338,10 @@ public class MazeState extends GameState {
 						displayString(0xBC65+0x03, 0x09-0x03);
 					}
 					
+					// ASM j990B persists the decremented strikes counter on the
+					// character; without the write-back the warrior loops forever.
 					if (numberOfTurns > 0) {
-//						character.setNumberOfStrikes(numberOfTurns-1);
-						numberOfTurns--;
+						character.setNumberOfStrikes(numberOfTurns - 1);
 					}
 					else {
 						fightingCharacterIndex++;
@@ -1415,38 +1423,37 @@ public class MazeState extends GameState {
 	 * @return 
 	 */
 	private int castAttackSpell(int spellNumber, int monsterID, int[] monstersHP, int deadMonsters) {
-		int mask = getMem(0xA3F5+spellNumber);
+		int mask = getMem(0xA3F5+spellNumber) & 0xFF;
 		for (int i=0;i<monstersHP.length;i++) {
+			// Skip already-dead monsters (ASM b97D5). Fireball must keep
+			// searching until it finds a live target before stopping.
+			if (monstersHP[i] <= 0) {
+				continue;
+			}
 			int spellDamage = 2 * m_level + 1 + (RANDOM.nextInt(256) & mask);
-			if (monstersHP[i] > 0) {
-				monstersHP[i] = Math.max(0, monstersHP[i] - spellDamage);
-				nextRowInMessageWindow();
-				if (monstersHP[i] == 0) {
-					// Current monster killed
-					// output byte 14,12,15,15,0E,0D,24,18,17,0E at (22,8)
-					// that matches chars "KILLED ONE"
-					displayString(0xBC5B, 0x0A);
-					deadMonsters++;
-					if (deadMonsters == monstersHP.length) {
-						return deadMonsters;
-					}
-				else {
-					// output byte 11,12,1D,1C,24,0F,18,1B,24 at (22,8)
-					// that matches chars "HITS FOR "
+			monstersHP[i] = Math.max(0, monstersHP[i] - spellDamage);
+			nextRowInMessageWindow();
+			if (monstersHP[i] == 0) {
+				// Current monster killed — print "KILLED ONE" only.
+				displayString(0xBC5B, 0x0A);
+				deadMonsters++;
+				if (deadMonsters == monstersHP.length) {
+					return deadMonsters;
 				}
-					// output byte 24,19,1D,1C on same row
-					// that matches chars " PTS"
-					for (int j=0;j<0x0D;j++) {
-						outputChar(getMem(0xBC4E+j));
-						if (j==8) {
-							outputWord(spellDamage);
-						}
+			}
+			else {
+				// Monster wounded — print "HITS FOR <n> PTS".
+				for (int j=0;j<0x0D;j++) {
+					outputChar(getMem(0xBC4E+j));
+					if (j==8) {
+						outputWord(spellDamage);
 					}
 				}
-				delay();
-				if (spellNumber == 1) {
-					break;
-				}
+			}
+			delay();
+			// Fireball (spell 1) is single-target; other attack spells hit every monster.
+			if (spellNumber == 1) {
+				break;
 			}
 		}
 		return deadMonsters;
@@ -1466,7 +1473,8 @@ public class MazeState extends GameState {
 		// Modify trigger of current square : put $FF in north coordinate to deactivate it
 		triggers[m_lastTriggerIndex << 1] = (byte) 0xff;
 		
-		int goldGained = getMem(0xA498+monsterID) << 1;
+		// ASM b9B09: LDA/ASL on an unsigned byte — result is (HP*2) mod 256.
+		int goldGained = ((getMem(0xA498+monsterID) & 0xFF) << 1) & 0xFF;
 		outputWord(goldGained);
 		
 		// Display bytes 0E,21,19,0E,1B,12,0E,17,0C,0E,2A,24 that matches string "EXPERIENCE: " at in message window	
@@ -1474,24 +1482,24 @@ public class MazeState extends GameState {
 		offset += displayStringAt(0xA6A7+offset);
 		
 		// Balrog ?
-		int xpGained = 0;
+		int xpGained;
 		if (monsterID == 0x27) {
 			xpGained = 0x2008; // 8200 XP
 		}
 		else {
-			// Compute experience gain for this monster
-			xpGained = getMem(0xA470+monsterID); // attack bonus
-			xpGained <<= 4; // multiply by 16
+			// Compute experience gain for this monster (ASM b9B3F).
+			xpGained = (getMem(0xA470+monsterID) & 0xFF) << 4;
 			xpGained *= (count+1);
-			
+
 			if (getGame().getCharacter(1).isValid()) {
 				xpGained >>= 1;
 			}
 			if (getGame().getCharacter(2).isValid()) {
 				xpGained >>= 1;
 			}
-			outputWord(xpGained);
 		}
+		// j9B7B: the ASM displays the XP word for both branches.
+		outputWord(xpGained);
 		
 		if (monsterID == 0x27) {
 			// If the balrog just died, 
@@ -1552,11 +1560,12 @@ public class MazeState extends GameState {
 	}
 
 	public boolean doMonsterEngage(int monsterID, int runningAwayMonsterBonus) {
-		// Load Dexterity of first character
+		// Sum dexterity of every present party member (ASM j9AAB reads
+		// $0812, $0912, $0A12 — one per slot; the Java was reading slot 1 thrice).
 		int dexterity = 0;
 		for (int i=0;i<3;i++) {
 			if (getGame().getCharacter(i).isValid()) {
-				dexterity += getGame().getCharacter(1).getDexterity();
+				dexterity += getGame().getCharacter(i).getDexterity();
 			}
 		}
 		
@@ -2016,10 +2025,11 @@ public class MazeState extends GameState {
 
 		m_facingWalls = getFacingWalls(m_orientation);
 		drawWalls(m_facingWalls);
-		
-		// Simulate original loop duration
-		while (System.nanoTime() - startTime < 200000000) {
-			Thread.yield();
+
+		// Simulate original loop duration (200 ms) without burning a core.
+		long remaining = 200_000_000L - (System.nanoTime() - startTime);
+		if (remaining > 0) {
+			java.util.concurrent.locks.LockSupport.parkNanos(remaining);
 		}
 	}
 
