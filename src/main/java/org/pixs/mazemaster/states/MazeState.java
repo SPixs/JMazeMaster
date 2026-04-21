@@ -1303,10 +1303,19 @@ public class MazeState extends GameState {
 			case 1: case 5: case 9: case 17:
 				ctx.deadMonsters = castAttackSpell(spellNumber, ctx.monsterID, ctx.monstersHP, ctx.deadMonsters);
 				return;
-			case 2:  ctx.magicARReduction = 0x02; return;   // SHIELD
-			case 6:  ctx.magicARReduction = 0x04; return;   // PROTECT
-			case 10: ctx.magicARReduction = 0x06; return;   // GUARDIAN
-			case 13: ctx.partyHitScoreBonus = 0x04; return; // ACCURACY
+			// ASM j97E6: ADC a704D / STA a704D — SHIELD/PROTECT/GUARDIAN all
+			// *accumulate* their AR reduction (A3F5 holds the per-spell value:
+			// SHIELD=$02, PROTECT=$04, GUARDIAN=$06). The Java port used to
+			// replace the running total, so casting SHIELD then PROTECT lost
+			// SHIELD's contribution.
+			case 2: case 6: case 10:
+				ctx.magicARReduction += rom().spellDamageMask(spellNumber);
+				return;
+			case 13:
+				// ASM b97F8 stores #$04 unconditionally — ACCURACY is a fixed +4,
+				// not cumulative.
+				ctx.partyHitScoreBonus = 0x04;
+				return;
 			default:
 				// Unreachable: askPartyActions filters non-combat spells to 0 (weapon).
 				throw new IllegalStateException("unexpected spell number " + spellNumber);
