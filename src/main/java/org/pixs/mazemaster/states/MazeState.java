@@ -11,6 +11,7 @@ import org.pixs.mazemaster.Direction;
 import org.pixs.mazemaster.Game;
 import org.pixs.mazemaster.MazeMap;
 import org.pixs.mazemaster.Party;
+import org.pixs.mazemaster.RomText;
 import org.pixs.mazemaster.WallType;
 
 public class MazeState extends GameState {
@@ -271,7 +272,7 @@ public class MazeState extends GameState {
 		
 		// Ouput screen codes 1C,19,0E,15,15,24,17,1E,16,0B,0E,1B,2A,24 (22,9)
 		// that matches chars "SPELL NUMBER: "
-		displayString(0xBC88, 0x0E);
+		displayText(RomText.SPELL_NUMBER);
 		
 		byte[] spellNumberChars = readChars(3);
 		int spellNumber = convertToWord(spellNumberChars);
@@ -288,7 +289,7 @@ public class MazeState extends GameState {
 			
 			// Ouput screen codes 0F,18,1B,24,0C,18,16,0B,0A,1D,24,18,17,15,22 at (22,10)
 			// that matches chars "FOR COMBAT ONLY"
-			displayString(0xA7F0, 0x0F);
+			displayText(RomText.FOR_COMBAT_ONLY);
 			return;
 		}
 		
@@ -301,7 +302,7 @@ public class MazeState extends GameState {
 			
 			// Or, ouput screen codes 15,0A,0C,14,24,1C,19,0E,15,15,24,19,1D,1C,1A at (22,10)
 			// that matches chars "LACK SPELL PTS"
-			displayString(0xA7F0+0xF, 0x1D-0x0F);
+			displayText(RomText.LACK_SPELL_PTS);
 			return;
 		}
 		
@@ -345,24 +346,24 @@ public class MazeState extends GameState {
 	private void castOrient() {
 		// Ouput screen codes $22,$18,$1E,$24,$0A,$1B,$0E,$24
 		// that matches chars "YOU ARE "
-		displayString(0xBC96, 0x08);
+		displayText(RomText.ORIENT_YOU_ARE);
 		outputWord(m_yPos);
 		
 		// Ouput screen codes $24,$1C,$19,$0A,$0C,$0E,$1C,
 		// that matches chars " SPACES"
-		displayString(0xBC96+0x08, 0x0F-0x08);
+		displayText(RomText.ORIENT_SPACES);
 		nextRowInMessageWindow();
 		
 		// Ouput screen codes $17,$18,$1B,$1D,$11,$25,$24
 		// that matches chars "NORTH, "
-		displayString(0xBC96+0x0F, 0x16-0x0F);
+		displayText(RomText.ORIENT_NORTH);
 		outputWord(m_xPos);
-		displayString(0xBC96+0x16, 0x1D-0x16);
+		displayText(RomText.ORIENT_EAST);
 		nextRowInMessageWindow();
 		
 		// Ouput screen codes $0E,$0A,$1C,$1D,$25,$24,$0A,$17,$0D,$24
 		// that matches chars "EAST, AND "
-		displayString(0xBC96+0x1D, 0x27-0x1D);
+		displayText(RomText.ORIENT_AND);
 		
 		outputChar((byte) m_level);
 		console().row++;
@@ -372,19 +373,19 @@ public class MazeState extends GameState {
 		// that matches chars "LEVELS BELOW THE"
 		// Ouput screen codes $0E,$17,$1D,$1B,$22,$24,$1C,$1D,$0A,$12,$1B,$1C,$25
 		// that matches chars "ENTRY STAIRS,"
-		displayString(0xBC96+0x27, 0x37-0x27);
+		displayText(RomText.ORIENT_LEVELS_BELOW);
 		console().row++;
 		console().col = 22;
-		displayString(0xBC96+0x37, 0x44-0x37);
+		displayText(RomText.ORIENT_ENTRY_STAIRS);
 		nextRowInMessageWindow();
 		
 		// Ouput screen codes $17,$18,$20,$24,$0F,$0A,$0C,$12,$17,$10,$24
 		// that matches chars "NOW FACING "
-		displayString(0xBC96+0x44, 0x4F-0x44);
+		displayText(RomText.ORIENT_NOW_FACING);
 		
 		// Load text offset for direction NORTH = 0, EAST = 5, SOUTH = 10, WEST = 15 
-		int offset = getMemU(0xA424+m_orientation.ordinal());
-		displayString(0xBCE5+offset, 5);
+		// Per-orientation offset into the compass-names block at $BCE5.
+		displayString(0xBCE5 + rom().directionNameOffset(m_orientation.ordinal()), 5);
 		m_messageInWindow = true;
 	}
 
@@ -473,12 +474,12 @@ public class MazeState extends GameState {
 	private void castTeleport() {
 		// Ouput screen codes 1D,0E,15,0E,19,18,1B,1D,26,26,26,15,0E,1F,0E,15,1C at (22,22)
 		// that matches chars "TELEPORT..."
-		displayString(0xBCF9, 0x0B);
+		displayText(RomText.TELEPORT_TITLE);
 		next2RowsInMessageWindow();
 
 		// Ouput screen codes 15,0E,1F,0E,15,1C,24,0D,18,20,17,2A,24 at (22,24)
 		// that matches chars "LEVELS DOWN: "
-		displayString(0xBCF9+0x0B, 0x18-0x0B);
+		displayText(RomText.TELEPORT_LEVELS_DOWN);
 
 		// ASM j8C73: re-query the value until it yields a valid target level.
 		int newLevel = m_level;
@@ -514,7 +515,7 @@ public class MazeState extends GameState {
 		
 		// Ouput screen codes 17,18,1B,1D,11,2A,24 at (22,25)
 		// that matches chars "NORTH: "
-		displayString(0xBCF9+0x18, 0x1F-0x18);
+		displayText(RomText.TELEPORT_NORTH_PROMPT);
 		
 		m_yPos = selectNewLocation(m_yPos);
 		waitForJoystickRelease();
@@ -522,7 +523,7 @@ public class MazeState extends GameState {
 		
 		// Ouput screen codes 0E,0A,1C,1D,2A,24 at (22,26)
 		// that matches chars "EAST: "
-		displayString(0xBCF9+0x1F, 0x25-0x1F);
+		displayText(RomText.TELEPORT_EAST_PROMPT);
 		
 		m_xPos = selectNewLocation(m_xPos);
 		
@@ -767,7 +768,7 @@ public class MazeState extends GameState {
 	}
 	
 	private void processUpstairs() {
-		int messageAddress = getMemU(0xA43D) | (getMemU(0xB4E1) << 8);
+		int messageAddress = rom().triggerMessageAddress(0); // slot 0 = upstairs
 		resetMessageWindowAndCursor();
 		playRingSound();
 		console().col = 21;
@@ -814,7 +815,7 @@ public class MazeState extends GameState {
 	}
 
 	private void processDownstairs() {
-		int messageAddress = getMemU(0xA43D+1) | (getMemU(0xB4E1+1) << 8);
+		int messageAddress = rom().triggerMessageAddress(1); // slot 1 = downstairs
 		resetMessageWindowAndCursor();
 		playRingSound();
 		console().col = 21;
@@ -852,7 +853,7 @@ public class MazeState extends GameState {
 	}
 
 	private void processClue() {
-		int messageAddress = getMemU(0xA43D+2+(m_level<<1)) | (getMemU(0xB4E1+2+(m_level<<1)) << 8);
+		int messageAddress = rom().triggerMessageAddress(2 + (m_level << 1)); // clue, per-floor
 		resetMessageWindowAndCursor();
 		playRingSound();
 		console().col = 21;
@@ -876,11 +877,12 @@ public class MazeState extends GameState {
 			return;
 		}
 		
-		// Enigma
+		// Enigma — compare the first 4 screen codes of the user's answer to "FATE".
 		byte[] answer = readChars(9);
+		byte[] expected = rom().balrogEnigmaAnswer();
 		boolean correct = true;
-		for (int i=0;i<4;i++) {
-			correct &= answer[i] == getMem(0xA428+i);
+		for (int i = 0; i < 4; i++) {
+			correct &= answer[i] == expected[i];
 		}
 		// If answer is incorrect, return one space WEST
 		if (!correct) {
@@ -907,15 +909,11 @@ public class MazeState extends GameState {
 			monsterIndex = 0x19;
 		}
 		
-		// Load monster sprite descriptors
-		int offset = monsterIndex * 4;
-		int multiColor0 = getMemU(0xBE60+offset);
-		int multiColor1 = getMemU(0xBE61+offset);
-		int spriteBottomAddress = getMemU(0xBE63+offset) << 8;
-		int spriteTopAddress = getMemU(0xBE62+offset) << 8;
-		if (spriteTopAddress < 0x0B0) {
-			spriteTopAddress = ((spriteTopAddress + 0x0B0) & 0x0FF00) | 0x080;
-		}
+		// Load monster sprite descriptors (ROM block at $BE60).
+		int multiColor0 = rom().monsterSpriteColor0(monsterIndex);
+		int multiColor1 = rom().monsterSpriteColor1(monsterIndex);
+		int spriteTopAddress = rom().monsterSpriteTopAddress(monsterIndex);
+		int spriteBottomAddress = rom().monsterSpriteBottomAddress(monsterIndex);
 
 		VicIIDisplay vicII = getGame().getVicII();
 		for (int i=0;i<64;i++) {
@@ -974,7 +972,7 @@ public class MazeState extends GameState {
 		
 		// Ouput screen codes 4A,0F,28,12,10,11,1D,24,18,1B,24,4A,1B,28,1E,17 (22,9)
 		// that matches chars "(F)IGHT OR (R)UN"
-		displayString(0xBC00, 0x10);
+		displayText(RomText.FIGHT_OR_RUN);
 		
 		int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
 		while (readKeyboardAsPETSCII != 0x46 && readKeyboardAsPETSCII != 0x52) {
@@ -994,7 +992,7 @@ public class MazeState extends GameState {
 				// Monster engages and so, catch party
 				// Ouput screen codes 1D,11,0E,22,24,0C,0A,1E,10,11,1D,24,22,18,1E in message window
 				// that matches chars "THEY CAUGHT YOU"
-				displayString(0xBC2F, 0x0F);
+				displayText(RomText.THEY_CAUGHT_YOU);
 				longDelay();
 				startFight(monsterIndex, count);
 			}
@@ -1002,7 +1000,7 @@ public class MazeState extends GameState {
 				// Party engages and so, can run away	
 				// Ouput screen codes 22,18,1E,24,10,18,1D,24,0A,20,0A,22,26,26,26 in message window
 				// that matches chars "YOU GO AWAY..."
-				displayString(0xBC20, 0x0F);
+				displayText(RomText.YOU_GO_AWAY);
 				longDelay();
 			}
 		}
@@ -1053,7 +1051,7 @@ public class MazeState extends GameState {
 		delayInMillis(50); // SMa : separate turns clearly, display is too fast in Java
 
 		// "MONSTERS ATTACK" at (22,6)
-		displayString(0xA9A4, 0x0F);
+		displayText(RomText.MONSTERS_ATTACK);
 		longDelay();
 		resetMessageWindowAndCursor();
 
@@ -1088,7 +1086,7 @@ public class MazeState extends GameState {
 
 			if (damage == 0) {
 				// "DODGES THE BLOW"
-				displayString(0xB7B1, 0x0F);
+				displayText(RomText.DODGES_THE_BLOW);
 			} else {
 				// Hit text varies with damage: "IS SCRAPED" / "IS SLASHED" / "IS BATTERED".
 				int messageOffset = 0x0F;
@@ -1107,7 +1105,7 @@ public class MazeState extends GameState {
 				if (target.getCondition() == 0) {
 					nextRowInMessageWindow();
 					// "AND IS KILLED"
-					displayString(0xBC7B, 0x0D);
+					displayText(RomText.AND_IS_KILLED);
 					getGame().deleteCharacter(targetIndex);
 				}
 			}
@@ -1126,7 +1124,7 @@ public class MazeState extends GameState {
 			// Mid-round escape attempt ('E' key) — not on the last monster.
 			if (i < ctx.monsterCount - 1 && checkInfightEscape(ctx)) {
 				// "YOU GO AWAY..."
-				displayString(0xBC20, 0x0F);
+				displayText(RomText.YOU_GO_AWAY);
 				longDelay();
 				return false;
 			}
@@ -1152,7 +1150,7 @@ public class MazeState extends GameState {
 			nextRowInMessageWindow();
 
 			// "(W)EAP OR (S)PEL"
-			displayString(0xBC10, 0x10);
+			displayText(RomText.WEAP_OR_SPELL);
 
 			int key = readKeyboardAsPETSCII();
 			while (key != 0x53 && key != 0x57) {
@@ -1166,7 +1164,7 @@ public class MazeState extends GameState {
 
 			next2RowsInMessageWindow();
 			// "SPELL NUMBER: "
-			displayString(0xBC88, 0x0E);
+			displayText(RomText.SPELL_NUMBER);
 			int spellNumber = convertToWord(readChars(3)) & 0x0FF;
 			if (spellNumber > 18) spellNumber = 0;
 
@@ -1201,7 +1199,7 @@ public class MazeState extends GameState {
 
 			if (checkInfightEscape(ctx)) {
 				// "YOU GO AWAY..."
-				displayString(0xBC20, 0x0F);
+				displayText(RomText.YOU_GO_AWAY);
 				longDelay();
 				return false;
 			}
@@ -1222,7 +1220,7 @@ public class MazeState extends GameState {
 				}
 			} else {
 				// "CAST A SPELL..."
-				displayString(0xBC3E, 0x10);
+				displayText(RomText.CAST_A_SPELL);
 				applyCombatSpell(spellNumber, ctx);
 				fightingCharacterIndex++;
 			}
@@ -1250,7 +1248,7 @@ public class MazeState extends GameState {
 
 		if (hitScore <= dodgeScore) {
 			// "MISSED"
-			displayString(0xBC65 + 0x03, 0x09 - 0x03);
+			displayText(RomText.MISSED);
 			return;
 		}
 
@@ -1283,7 +1281,7 @@ public class MazeState extends GameState {
 					ctx.deadMonsters++;
 					nextRowInMessageWindow();
 					// "KILLED ONE"
-					displayString(0xBC5B, 0x0A);
+					displayText(RomText.KILLED_ONE);
 				}
 				break;
 			}
@@ -1345,7 +1343,7 @@ public class MazeState extends GameState {
 			nextRowInMessageWindow();
 			if (monstersHP[i] == 0) {
 				// Current monster killed — print "KILLED ONE" only.
-				displayString(0xBC5B, 0x0A);
+				displayText(RomText.KILLED_ONE);
 				deadMonsters++;
 				if (deadMonsters == monstersHP.length) {
 					return deadMonsters;
@@ -1521,12 +1519,9 @@ public class MazeState extends GameState {
 	 * $884F
 	 */
 	private void drawHitStar() {
-		for (int i=0;i<8;i++) {
-			int startY = getMemU(0xA56D+i);
-			int startX = getMemU(0xA575+i);
-			int endY = getMemU(0xA57D+i);
-			int endX = getMemU(0xA585+i);
-			draw3DViewLine(startX, startY, endX, endY);
+		for (int i = 0; i < 8; i++) {
+			int[] coords = rom().starLine(i);
+			draw3DViewLine(coords[1], coords[0], coords[3], coords[2]); // (startX, startY, endX, endY)
 		}
 	}
 
@@ -1685,7 +1680,7 @@ public class MazeState extends GameState {
 		console().col = 3;
 		console().row = 21;
 		
-		displayString(0xA58D, 0x22);
+		displayText(RomText.MAZE_VIEW_FOOTER);
 		displayStatsLines();
 		
 		// Display maze master logo in top of message window
@@ -1698,10 +1693,10 @@ public class MazeState extends GameState {
 		outputChar((byte)0x2D);
 		nextRowInMessageWindow();
 		// display the upper part '|   MAZE   |' of maze master logo
-		displayString(0xA5B0, 0x10);
+		displayText(RomText.MAZE_BANNER);
 		nextRowInMessageWindow();
 		// display the lower part '|  MASTER  |' of maze master logo
-		displayString(0xA5C0, 0x10);
+		displayText(RomText.MASTER_BANNER);
 		nextRowInMessageWindow();
 		outputChar((byte)0x2E);
 		for (int i=0;i<14;i++) {
@@ -1783,7 +1778,7 @@ public class MazeState extends GameState {
 		
 		// Display string "ITEMS: " on next message window row (22,13)	
 		nextRowInMessageWindow();
-		displayString(0xA753+0x4, 0x0A-0x4);
+		displayText(RomText.ITEMS_LABEL);
 		
 		// For each item slot, display a blank line if no item is in slot
 		// else display item name	
@@ -1798,7 +1793,7 @@ public class MazeState extends GameState {
 		
 		// Ouput screen codes 1C,19,0E,15,15,24,19,1D,1C,2A,24 at (22,12) 
 		// that matches chars "SPELL PTS: "	
-		displayString(0xA771, 0x0B);
+		displayText(RomText.SPELL_PTS_LABEL);
 		outputWord(character.getSpellPoints());
 		
 		m_messageInWindow = true;

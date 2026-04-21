@@ -56,6 +56,11 @@ public final class PetsciiConsole {
         }
     }
 
+    /** Writes a named fixed-length message from the ROM. */
+    public void putText(RomText text) {
+        putRomString(text.address, text.length);
+    }
+
     /**
      * Writes the bytes at {@code address} until hitting a $FF terminator.
      * Returns the number of bytes consumed including the terminator — useful

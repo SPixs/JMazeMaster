@@ -6,6 +6,7 @@ import org.pixs.hardware.Sprite;
 import org.pixs.hardware.VicIIDisplay;
 import org.pixs.mazemaster.Character;
 import org.pixs.mazemaster.Game;
+import org.pixs.mazemaster.RomText;
 
 public class MainMenuState extends GameState {
 
@@ -88,13 +89,9 @@ public class MainMenuState extends GameState {
 	private void buyItem() {
 		clearMenu();
 		
-		// Ouput screen codes 20,11,18,24,20,12,15,15,24,0B,1E,22,27,24,01,49,03,24,4A,00,2A,17,18,17,0E,28 at (7,7) 
-		// that matches chars "WHO WILL BUY? 1-3 (0:NONE)"
-		console().row = 0x07;
-		console().col = 0x07;
-		for (int i=0;i<0x1A;i++) {
-			outputChar(getMem(0xA77C+i));
-		}
+		// "WHO WILL BUY? 1-3 (0:NONE)" at (7,7)
+		console().moveTo(7, 7);
+		displayText(RomText.WHO_WILL_BUY);
 		
 		Character selectedCharacter = null;
 		while (selectedCharacter == null) {
@@ -114,13 +111,10 @@ public class MainMenuState extends GameState {
 			}
 		}
 		
-		// Ouput screen codes 1D,22,19,0E,24,4A,01,49,20,0E,24,02,49,0A,1B,24,03,49,1C,11,24,04,49,16,12,28,27 at (7,9) 
-		// that matches chars "TYPE (1-WE 2-AR 3-SH 4-MI)?"	
-		console().row+=2;
-		console().col=7;
-		for (int i=0;i<0x1B;i++) {
-			outputChar(getMem(0xA796+i));
-		}
+		// "TYPE (1-WE 2-AR 3-SH 4-MI)?" at (7,9)
+		console().row += 2;
+		console().col = 7;
+		displayText(RomText.ITEM_TYPE_PROMPT);
 		
 		int pressedNumber = (readKeyboardAsPETSCII() - 0x31) & 0xFFFF;
 		while (pressedNumber > 3) {
@@ -128,13 +122,10 @@ public class MainMenuState extends GameState {
 		}
 		int itemType = pressedNumber;
 		
-		// Ouput screen codes 12,1D,0E,16,24,17,1E,16,0B,0E,1B,27,24,4A,01,49,04 (7,10) 
-		// that matches chars "ITEM NUMBER?: (1-4)"	
+		// "ITEM NUMBER?: (1-4)" at (7,10)
 		console().row++;
-		console().col=7;
-		for (int i=0;i<0x12;i++) {
-			outputChar(getMem(0xA7B1+i));
-		}
+		console().col = 7;
+		displayText(RomText.ITEM_NUMBER_PROMPT);
 		
 		pressedNumber = (readKeyboardAsPETSCII() - 0x31) & 0xFFFF;
 		while (pressedNumber > 3) {
@@ -144,21 +135,14 @@ public class MainMenuState extends GameState {
 		int itemPrice = rom().itemPrice(itemType, pressedNumber);
 
 		if (itemPrice > selectedCharacter.getGold()) {
-			// Ouput screen codes 12,17,1C,1E,0F,0F,12,0C,12,0E,17,1D,24,0F,1E,17,0D,1C at (11,11) 
-			// that matches chars "INSUFFICIENT FUNDS"
+			// "INSUFFICIENT FUNDS" at (11,11)
 			console().row++;
-			console().col=11;
-			for (int i=0;i<0x12;i++) {
-				outputChar(getMem(0xA7C3+i));
-			}
+			console().col = 11;
+			displayText(RomText.INSUFFICIENT_FUNDS);
 			
-			console().row+=2;
-			console().col=0x0A;
-			// Ouput screen codes 11,12,1D,24,0A,17,22,24,14,0E,22,24,1D,18,24,10,18,24,18,17,1C at (5,15) 
-			// that matches chars "HIT ANY KEY TO GO ON"
-			for (int i=0x0A;i<0x1E;i++) {
-				outputChar(getMem(0xA753+i));
-			}
+			console().row += 2;
+			console().col = 0x0A;
+			displayText(RomText.HIT_ANY_KEY);
 			
 			readKeyboardAsPETSCII();
 			return;
@@ -169,11 +153,9 @@ public class MainMenuState extends GameState {
 			selectedCharacter.setItem(itemType, (byte)(itemNumber+1));
 
 			// j85E5 in source.asm jumps to j85DE: display "HIT ANY KEY TO GO ON" and wait
-			console().row+=2;
-			console().col=0x0A;
-			for (int i=0x0A;i<0x1E;i++) {
-				outputChar(getMem(0xA753+i));
-			}
+			console().row += 2;
+			console().col = 0x0A;
+			displayText(RomText.HIT_ANY_KEY);
 			readKeyboardAsPETSCII();
 		}
 	}
@@ -181,13 +163,9 @@ public class MainMenuState extends GameState {
 	private void deleteCharacter() {
 		clearMenu();
 		
-		// Ouput screen codes 0D,0E,15,0E,1D,0E,24,0C,11,0A,1B,0A,0C,1A,0E,1B,24,01,49,03,24,4A,00,2A,17,18,17,0E,28 at (9,8)
-		// that matches chars "DELETE CHARACTER 1-3 (0:NONE)"
-		console().row = 0x08;
-		console().col = 0x06;
-		for (int i=0;i<0x1D;i++) {
-			outputChar(getMem(0xB7E2+i));
-		}
+		// "DELETE CHARACTER 1-3 (0:NONE)" at (6,8)
+		console().moveTo(6, 8);
+		displayText(RomText.DELETE_CHARACTER);
 		
 		// Let player choose the caracter number to delete
 		int pressedNumber = readKeyboardAsPETSCII() - 0x30;
@@ -205,12 +183,9 @@ public class MainMenuState extends GameState {
 
 	private void examineCharacter() {
 		clearMenu();
-		console().col = 0x07;
-		console().row = 0x08;
-		
-		for (int i=0;i<0x1A;i++) {
-			outputChar(getMem(0xA739+i));
-		}
+		// "EXAMINE WHICH 1-3 (0-NONE)" at (7,8)
+		console().moveTo(7, 8);
+		displayText(RomText.EXAMINE_WHICH);
 		
 		Character selectedCharacter = null;
 		while (selectedCharacter == null) {
@@ -242,19 +217,10 @@ public class MainMenuState extends GameState {
 		// Ouput screen codes 1D,11,0E,24 at (22,6)
 		// that matches chars "THE "
 		console().col++;
-		for (int i=0;i<0x04;i++) {
-			outputChar(getMem(0xA753+i));
-		}
-		
-		// According to the class field, display either 'THE WARRIOR' or 'THE WIZARD'
-		int offset = selectedCharacter.getClassType() == 1 ? 0 : 7;
-		while (true) {
-			outputChar(getMem(0xA72C+offset));
-			offset++;
-			if (offset == 0x07 || offset == 0x0D) {
-				break;
-			}
-		}
+		displayText(RomText.THE);
+
+		// "THE WARRIOR" or "THE WIZARD" according to class type
+		displayText(selectedCharacter.getClassType() == 1 ? RomText.WARRIOR : RomText.WIZARD);
 		
 		console().row++;
 		int savedCol = console().col;
@@ -301,13 +267,10 @@ public class MainMenuState extends GameState {
 		stringIndex = displayString(stringIndex);
 		outputWord(selectedCharacter.getXp());
 		
-		// Ouput screen codes 12,1D,0E,16,1C,2A at (5,10) 
-		// that matches chars "ITEMS :"
+		// "ITEMS:"
 		console().row++;
 		console().col = 5;
-		for (int i=4;i<0x0A;i++) {
-			outputChar(getMem(0xA753+i));
-		}
+		displayText(RomText.ITEMS_LABEL);
 		
 		for (int i=0;i<4;i++) {
 			console().row++;
@@ -333,28 +296,16 @@ public class MainMenuState extends GameState {
 		console().row++;
 		console().col=5;
 		
-		// Ouput screen codes 0C,18,0D,0E,2A,24 at (5,15) 
-		// that matches chars "CODE: "
-		for (int i=0;i<0x06;i++) {
-			outputChar(getMem(0xA9F4+i));
-		}
+		// "CODE: " at (5,15)
+		displayText(RomText.CODE_LABEL);
 		
 		int groupIndex = 0;
-		for (int i=0;i<21;i++) {
-			byte flippingByte = getMem(0xA396+i);
-			// Does this code char encore the upper or lower 4 bits of character data ?
-			byte upperOrLower = getMem(0xA3AB+i);
-			// If lower part, skip logical shift of value
+		for (int i = 0; i < 21; i++) {
+			byte flippingByte = rom().codeFlippingByte(i);
+			boolean upperNibble = rom().codeNibbleFlag(i) != 0;
 			byte b = selectedCharacter.getRawBytes()[flippingByte];
-			if (upperOrLower != 0) {
-				b = (byte) ((b >> 4) & 0x0F);
-				b = (byte) ((b ^ flippingByte) & 0x0F);
-				outputChar(b);
-			}
-			else {
-				b = (byte) ((b ^ flippingByte) & 0x0F);
-				outputChar(b);
-			}
+			if (upperNibble) b = (byte) ((b >> 4) & 0x0F);
+			outputChar((byte) ((b ^ flippingByte) & 0x0F));
 			
 			if (++groupIndex == 7) {
 				groupIndex = 0;
@@ -363,13 +314,9 @@ public class MainMenuState extends GameState {
 		}
 		
 		console().row++;
-		console().col=0x0A;
-		// Ouput screen codes 11,12,1D,24,0A,17,22,24,14,0E,22,24,1D,18,24,10,18,24,18,17,1C at (5,15) 
-		// that matches chars "HIT ANY KEY TO GO ON"
-		for (int i=0x0A;i<0x1E;i++) {
-			outputChar(getMem(0xA753+i));
-		}
-		
+		console().col = 0x0A;
+		displayText(RomText.HIT_ANY_KEY);
+
 		readKeyboardAsPETSCII();
 	}
 
@@ -405,10 +352,7 @@ public class MainMenuState extends GameState {
 	private void newCharacter(int index) {
 		clearMenu();
 		putCursorAt7x7();
-		
-		for (int i=0;i<0x10;i++) {
-			outputChar(getMem(0xA9B3+i));
-		}
+		displayText(RomText.RANDOMIZE_YN);
 		
 		int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
 		// Read keyboard while pressed key is neither 'Y' or 'N'
@@ -452,9 +396,7 @@ public class MainMenuState extends GameState {
 			
 			console().row++;
 			console().col = 7;
-			for (int i=0;i<0x15;i++) {
-				outputChar(getMem(0xA717+i));
-			}
+			displayText(RomText.CLASS_WAR_WIZ);
 			
 			int readKeyboardAsPETSCII = readKeyboardAsPETSCII();
 			while (readKeyboardAsPETSCII - 0x31 > 1 || readKeyboardAsPETSCII - 0x31 < 0) {
@@ -484,18 +426,14 @@ public class MainMenuState extends GameState {
 				
 				byte[] code = readChars(7);
 				
-				for (int i=0;i<7;i++) {
-					byte flippingByte = getMem(0xA396+charIndexToParse);
-					byte upperOrLower = getMem(0xA3AB+charIndexToParse);
-					
+				for (int i = 0; i < 7; i++) {
+					byte flippingByte = rom().codeFlippingByte(charIndexToParse);
+					boolean upperNibble = rom().codeNibbleFlag(charIndexToParse) == 1;
+
 					byte c = rawBytes[flippingByte];
 					byte v = (byte) (code[i] ^ flippingByte);
-					if (upperOrLower == 1) {
-						c = (byte) (c | ((v << 4) & 0x0F0));
-					}
-					else {
-						c = (byte) (c | (v & 0x0F));
-					}
+					if (upperNibble) c = (byte) (c | ((v << 4) & 0x0F0));
+					else             c = (byte) (c | (v & 0x0F));
 					rawBytes[flippingByte] = c;
 					charIndexToParse++;
 				}

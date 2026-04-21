@@ -236,4 +236,99 @@ class RomTest {
 
         assertEquals(0xAB, rom.getByteU(0x1234));
     }
+
+    // -- Triggers, sprites, encoding --
+
+    @Test
+    void triggerMessageAddressCombinesLsbAndMsb() {
+        byte[] mem = freshMemory();
+        mem[0xA43D + 3] = 0x17;   // LSB for slot 3
+        mem[0xB4E1 + 3] = (byte) 0xBB; // MSB
+        Rom rom = new Rom(mem);
+
+        assertEquals(0xBB17, rom.triggerMessageAddress(3));
+    }
+
+    @Test
+    void monsterSpriteTopAddressAppliesRomQuirkOnlyWhenRawByteIsZero() {
+        // The Java port (and presumably the ASM) compares the already-shifted
+        // top address to the literal $B0, not to $B000. That condition only
+        // triggers when the raw descriptor byte is 0 (so shifted == 0).
+        // Preserved faithfully — tests pin the current behaviour, not the
+        // likely-intended "< $B000".
+        byte[] mem = freshMemory();
+        mem[0xBE62 + 5 * 4] = 0x00;
+        Rom rom = new Rom(mem);
+
+        // Fixup: ((0 + $B0) & $FF00) | $80 = 0 | 0x80 = 0x80
+        assertEquals(0x80, rom.monsterSpriteTopAddress(5));
+    }
+
+    @Test
+    void monsterSpriteTopAddressNormalValue() {
+        byte[] mem = freshMemory();
+        mem[0xBE62 + 2 * 4] = (byte) 0xB4;
+        Rom rom = new Rom(mem);
+
+        assertEquals(0xB400, rom.monsterSpriteTopAddress(2));
+    }
+
+    @Test
+    void starLineGatheresFourParallelTables() {
+        byte[] mem = freshMemory();
+        mem[0xA56D + 3] = 0x10; // startY
+        mem[0xA575 + 3] = 0x20; // startX
+        mem[0xA57D + 3] = 0x30; // endY
+        mem[0xA585 + 3] = 0x40; // endX
+        Rom rom = new Rom(mem);
+
+        int[] coords = rom.starLine(3);
+        assertEquals(0x10, coords[0]);
+        assertEquals(0x20, coords[1]);
+        assertEquals(0x30, coords[2]);
+        assertEquals(0x40, coords[3]);
+    }
+
+    @Test
+    void balrogEnigmaAnswerReadsFourBytesFromA428() {
+        byte[] mem = freshMemory();
+        mem[0xA428] = 0x0F; // F
+        mem[0xA429] = 0x0A; // A
+        mem[0xA42A] = 0x1D; // T
+        mem[0xA42B] = 0x0E; // E
+        Rom rom = new Rom(mem);
+
+        byte[] answer = rom.balrogEnigmaAnswer();
+        assertEquals(4, answer.length);
+        assertEquals(0x0F, answer[0]);
+        assertEquals(0x0A, answer[1]);
+        assertEquals(0x1D, answer[2]);
+        assertEquals(0x0E, answer[3]);
+    }
+
+    @Test
+    void directionNameOffsetReadsA424Table() {
+        byte[] mem = freshMemory();
+        mem[0xA424 + 0] = 0x00;
+        mem[0xA424 + 1] = 0x05;
+        mem[0xA424 + 2] = 0x0A;
+        mem[0xA424 + 3] = 0x0F;
+        Rom rom = new Rom(mem);
+
+        assertEquals(0x00, rom.directionNameOffset(0));
+        assertEquals(0x05, rom.directionNameOffset(1));
+        assertEquals(0x0A, rom.directionNameOffset(2));
+        assertEquals(0x0F, rom.directionNameOffset(3));
+    }
+
+    @Test
+    void codeFlippingByteAndNibbleFlagReadTheirTables() {
+        byte[] mem = freshMemory();
+        mem[0xA396 + 2] = 0x10;
+        mem[0xA3AB + 2] = 0x01;
+        Rom rom = new Rom(mem);
+
+        assertEquals(0x10, rom.codeFlippingByte(2));
+        assertEquals(0x01, rom.codeNibbleFlag(2));
+    }
 }

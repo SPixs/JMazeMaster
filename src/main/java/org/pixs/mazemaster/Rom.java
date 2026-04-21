@@ -142,4 +142,80 @@ public final class Rom {
 
     /** Base address of character slot {@code slot} (0..2). */
     public int characterBase(int slot) { return 0x0800 + slot * 0x100; }
+
+    // ------------------------------------------------------------------
+    // Triggers, sprites, encoding tables
+    // ------------------------------------------------------------------
+
+    /**
+     * Address of the ROM message shown by a special trigger (upstairs /
+     * downstairs / clue). The LSB lives at $A43D+i, the MSB at $B4E1+i.
+     * Callers pass 0 for upstairs, 1 for downstairs, {@code 2 + 2*level}
+     * for the per-floor clue and {@code 3 + 2*level} for the hole trigger
+     * (holes have MSB 0 — no message, just falls through).
+     */
+    public int triggerMessageAddress(int triggerSlot) {
+        return getByteU(0xA43D + triggerSlot) | (getByteU(0xB4E1 + triggerSlot) << 8);
+    }
+
+    /** Sprite shared-color 0 for monster {@code id} (VIC-II multicolor 0). */
+    public int monsterSpriteColor0(int id) { return getByteU(0xBE60 + id * 4); }
+
+    /** Sprite shared-color 1 for monster {@code id} (VIC-II multicolor 1). */
+    public int monsterSpriteColor1(int id) { return getByteU(0xBE61 + id * 4); }
+
+    /**
+     * Normalised MSB address (&lt;&lt; 8) of the upper half of the sprite data
+     * for monster {@code id}. Applies the ROM's address-fixup quirk when the
+     * raw table entry falls below $B0 (ASM s897A).
+     */
+    public int monsterSpriteTopAddress(int id) {
+        int addr = getByteU(0xBE62 + id * 4) << 8;
+        if (addr < 0x0B0) {
+            addr = ((addr + 0x0B0) & 0x0FF00) | 0x080;
+        }
+        return addr;
+    }
+
+    /** MSB address of the lower half of the sprite data. */
+    public int monsterSpriteBottomAddress(int id) {
+        return getByteU(0xBE63 + id * 4) << 8;
+    }
+
+    /**
+     * Coordinates of the {@code i}-th hurting-star line (0..7).
+     * Returns {@code [startY, startX, endY, endX]} matching the four parallel
+     * ROM tables at $A56D / $A575 / $A57D / $A585.
+     */
+    public int[] starLine(int i) {
+        return new int[] {
+                getByteU(0xA56D + i),
+                getByteU(0xA575 + i),
+                getByteU(0xA57D + i),
+                getByteU(0xA585 + i)
+        };
+    }
+
+    /** The 4 screen codes answering the Balrog's riddle — "FATE". */
+    public byte[] balrogEnigmaAnswer() {
+        return new byte[] {
+                getByte(0xA428), getByte(0xA429), getByte(0xA42A), getByte(0xA42B)
+        };
+    }
+
+    /**
+     * Offset into the directions-name block ($BCE5+) for a given orientation
+     * ordinal (0=NORTH, 1=EAST, 2=SOUTH, 3=WEST). Each label is 5 chars wide.
+     */
+    public int directionNameOffset(int orientationOrdinal) {
+        return getByteU(0xA424 + orientationOrdinal);
+    }
+
+    // -- CODE encoding tables --
+
+    /** Flipping byte (attribute offset) for the {@code i}-th CODE character (0..20). */
+    public byte codeFlippingByte(int i) { return getByte(0xA396 + i); }
+
+    /** Nibble flag: 0 for lower, non-zero for upper nibble of the attribute byte. */
+    public byte codeNibbleFlag(int i)   { return getByte(0xA3AB + i); }
 }

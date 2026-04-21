@@ -7,6 +7,7 @@ import org.pixs.mazemaster.MazeMap;
 import org.pixs.mazemaster.Party;
 import org.pixs.mazemaster.PetsciiConsole;
 import org.pixs.mazemaster.Rom;
+import org.pixs.mazemaster.RomText;
 
 /**
  * Base class for the three-state FSM (Init, MainMenu, Maze). Kept deliberately
@@ -87,6 +88,8 @@ public abstract class GameState {
 	public void displayString(int address, int charCount) { console().putRomString(address, charCount); }
 	public int displayStringAt(int address) { return console().putRomStringTerminated(address); }
 	protected void outputWord(int value) { console().putDecimal(value); }
+	/** Write a named fixed-length message from the ROM catalog. */
+	protected void displayText(RomText t) { console().putText(t); }
 
 	protected void putCursorAt7x7() {
 		console().moveTo(7, 7);
