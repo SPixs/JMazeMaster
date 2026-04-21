@@ -171,8 +171,9 @@ public class MazeState extends GameState {
 					// Execute some code here half the time (light decline and characters healing)
 					// (nearly every 9.7 seconds, =9566743 cpu cycles)
 					if (timerToggleFlag) {
-						// Process light decrease
-						if (m_lightCounter > 0 && m_lightCounter != 0xF0) {
+						// Process light decrease. ASM b8707: CMP #$F0 / BCS skip, i.e.
+						// counters ≥ $F0 (Staff of Light sets $FA) stay lit indefinitely.
+						if (m_lightCounter > 0 && m_lightCounter < 0xF0) {
 							m_lightCounter--;
 							if (m_lightCounter == 0) {
 								playRingSound();
@@ -956,7 +957,11 @@ public class MazeState extends GameState {
 		// Get a random value between 1 & 4
 		int count = RANDOM.nextInt(4) + 1;
 		count += m_level & 0x03;
-		if (m_wanderingMonsters) {
+		// ASM b95EB adds +2 monsters when $80 (wandering flag) is NON-zero,
+		// i.e. when wandering is deactivated because the party is too strong
+		// for this floor. This is a difficulty bump on the remaining trigger
+		// encounters; the Java port previously had the condition inverted.
+		if (!m_wanderingMonsters) {
 			count += 2;
 		}
 		

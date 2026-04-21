@@ -196,7 +196,7 @@ public class Character {
 		m_intellect = raw[0x11] & 0x0ff;
 		m_dexterity = raw[0x12] & 0x0ff;
 		m_constitution = raw[0x13] & 0x0ff;
-		m_classType = raw[0x14];
+		m_classType = raw[0x14] & 0xFF;
 		m_gold = ((raw[0x15] & 0x00FF) | raw[0x16] << 8) & 0x0FFFF;
 		m_xp = ((raw[0x17] & 0x00FF) | raw[0x18] << 8) & 0x0FFFF;
 		setItem(0, raw[0x19]);
