@@ -616,8 +616,17 @@ public class MazeState extends GameState {
 		displayStatsLines();
 	}
 
-	public int convertToWord(byte[] chars) {
-		// ASM s9F9D: reject non-digit input (screen codes 0..9 only) and return 0.
+	/**
+	 * Convert a sequence of screen-code digits read from the keyboard into its
+	 * numeric value. Mirrors ASM s9F9D:
+	 * <ul>
+	 *   <li>a screen-code $24 (space) ends the number (we've hit an unfilled
+	 *       slot in the input buffer),</li>
+	 *   <li>any non-digit code (screen codes &gt; 9) makes the whole string
+	 *       invalid and the routine returns 0.</li>
+	 * </ul>
+	 */
+	public static int convertToWord(byte[] chars) {
 		int result = 0;
 		for (byte v : chars) {
 			if (v == 0x24) return result;
@@ -1457,7 +1466,13 @@ public class MazeState extends GameState {
 		}
 	}
 
-	private int checkOverflow16bits(int v) {
+	/**
+	 * Caps a computed gold / experience gain using the same 8-bit-wrap-and-
+	 * saturate pattern as the ASM (b9BBF / b9BD3): once the MSB would overflow,
+	 * it is frozen at $FF and the LSB keeps its wrapped value, so totals
+	 * beyond 65535 become 0xFFxx where xx is the carry-byte.
+	 */
+	static int checkOverflow16bits(int v) {
 		if (v > 0x0FFFF) {
 			v = 0x0FF00 | (v & 0x0FF);
 		}
