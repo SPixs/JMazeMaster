@@ -30,15 +30,11 @@ public class SwingKeyboard implements IKeyboard, KeyListener {
 			int keyCode = event.getKeyCode();
 			if (!pressedKeys.contains(keyCode)) {
 	            pressedKeys.add(keyCode);
-				keyPressed(event.getKeyCode());
-			}
-		}
-		
-		public void keyPressed(int key) {
-			Byte keyCode = getMappedKey(key);
-			if (keyCode != null) {
-				for (IKeyListener listener : m_listeners) {
-					listener.keyPressed(keyCode.byteValue());
+				Byte mapped = mapEvent(event);
+				if (mapped != null) {
+					for (IKeyListener listener : m_listeners) {
+						listener.keyPressed(mapped.byteValue());
+					}
 				}
 			}
 		}
@@ -46,16 +42,36 @@ public class SwingKeyboard implements IKeyboard, KeyListener {
 		@Override
 		public void keyReleased(KeyEvent event) {
 			pressedKeys.remove(event.getKeyCode());
-			keyReleased(event.getKeyCode());
-		}
-		
-		public void keyReleased(int key) {
-			Byte keyCode = getMappedKey(key);
-			if (keyCode != null) {
+			Byte mapped = mapEvent(event);
+			if (mapped != null) {
 				for (IKeyListener listener : m_listeners) {
-					listener.keyReleased(keyCode.byteValue());
+					listener.keyReleased(mapped.byteValue());
 				}
 			}
+		}
+
+		/**
+		 * Map the key using the effective keyChar for printable digits/letters so that
+		 * AZERTY shifted digits, numpad digits, and lowercase letters all work. Falls
+		 * back to the keyCode table for non-printable keys (arrows, Enter, F-keys, ...).
+		 */
+		private Byte mapEvent(KeyEvent event) {
+			char c = event.getKeyChar();
+			switch (c) {
+				case '0': return KEY_0;
+				case '1': return KEY_1;
+				case '2': return KEY_2;
+				case '3': return KEY_3;
+				case '4': return KEY_4;
+				case '5': return KEY_5;
+				case '6': return KEY_6;
+				case '7': return KEY_7;
+				case '8': return KEY_8;
+				case '9': return KEY_9;
+			}
+			if (c >= 'a' && c <= 'z') return getMappedKey(KeyEvent.VK_A + (c - 'a'));
+			if (c >= 'A' && c <= 'Z') return getMappedKey(KeyEvent.VK_A + (c - 'A'));
+			return getMappedKey(event.getKeyCode());
 		}
 		
 		private Byte getMappedKey(int keyCode) {
